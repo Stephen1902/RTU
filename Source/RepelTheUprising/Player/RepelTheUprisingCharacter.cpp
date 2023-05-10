@@ -1,6 +1,9 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "RepelTheUprisingCharacter.h"
+
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -16,6 +19,8 @@
 
 ARepelTheUprisingCharacter::ARepelTheUprisingCharacter()
 {
+	PrimaryActorTick.bCanEverTick = true;
+	
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
@@ -46,27 +51,27 @@ ARepelTheUprisingCharacter::ARepelTheUprisingCharacter()
 
 	BodyMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Body Mesh"));
 	BodyMesh->SetupAttachment(GetMesh());
-	BodyMesh->SetMasterPoseComponent(GetMesh());
+	BodyMesh->SetLeaderPoseComponent(GetMesh());
 	
 	HandsMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Hands Mesh"));
 	HandsMesh->SetupAttachment(GetMesh());
-	HandsMesh->SetMasterPoseComponent(GetMesh());
+	HandsMesh->SetLeaderPoseComponent(GetMesh());
 	
 	LegsMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Legs Mesh"));
 	LegsMesh->SetupAttachment(GetMesh());
-	LegsMesh->SetMasterPoseComponent(GetMesh());
+	LegsMesh->SetLeaderPoseComponent(GetMesh());
 	
 	FeetMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Feet Mesh"));
 	FeetMesh->SetupAttachment(GetMesh());
-	FeetMesh->SetMasterPoseComponent(GetMesh());
+	FeetMesh->SetLeaderPoseComponent(GetMesh());
 	
 	HelmetMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Helmet Mesh"));
 	HelmetMesh->SetupAttachment(GetMesh());
-	HelmetMesh->SetMasterPoseComponent(GetMesh());
+	HelmetMesh->SetLeaderPoseComponent(GetMesh());
 	
 	BackpackMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Backpack Mesh"));
 	BackpackMesh->SetupAttachment(GetMesh());
-	BackpackMesh->SetMasterPoseComponent(GetMesh());
+	BackpackMesh->SetLeaderPoseComponent(GetMesh());
 	
 	//////////////////////////////////////////////////////////////////////////
 	// Input
@@ -74,30 +79,29 @@ ARepelTheUprisingCharacter::ARepelTheUprisingCharacter()
 
 void ARepelTheUprisingCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
 	// Set up gameplay key bindings
-	check(PlayerInputComponent)
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ARepelTheUprisingCharacter::StartJump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ARepelTheUprisingCharacter::EndJump);
+	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ARepelTheUprisingCharacter::StartJump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ARepelTheUprisingCharacter::EndJump);
 
-	PlayerInputComponent->BindAction("ClimbUp", IE_Pressed, this, &ARepelTheUprisingCharacter::ClimbUp);
-	PlayerInputComponent->BindAction("DropDown", IE_Pressed, this, &ARepelTheUprisingCharacter::DropDown);
+		// Move Actions
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ARepelTheUprisingCharacter::Move);
+		EnhancedInputComponent->BindAction(RunAction,ETriggerEvent::Triggered, this, &ARepelTheUprisingCharacter::StartRunning);
+		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Completed, this, &ARepelTheUprisingCharacter::EndRunning);
 
-	PlayerInputComponent->BindAction("Run", IE_Pressed, this, &ARepelTheUprisingCharacter::StartRunning);
-	PlayerInputComponent->BindAction("Run", IE_Released, this, &ARepelTheUprisingCharacter::EndRunning);
+		//Looking
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ARepelTheUprisingCharacter::Look);
 
-	PlayerInputComponent->BindAxis("MoveForward", this, &ARepelTheUprisingCharacter::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &ARepelTheUprisingCharacter::MoveRight);
+		// Climbing
+		EnhancedInputComponent->BindAction(ClimbUpAction, ETriggerEvent::Started, this, &ARepelTheUprisingCharacter::ClimbUp);
+		EnhancedInputComponent->BindAction(DropDownAction, ETriggerEvent::Started, this, &ARepelTheUprisingCharacter::DropDown);
 
-	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
-	// "turn" handles devices that provide an absolute delta, such as a mouse.
-	// "turn rate" is for devices that we choose to treat as a rate of change, such as an analog joystick
-	PlayerInputComponent->BindAxis("Turn", this, &ARepelTheUprisingCharacter::StartTurn);
-	PlayerInputComponent->BindAxis("TurnRate", this, &ARepelTheUprisingCharacter::TurnAtRate);
-	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
-	PlayerInputComponent->BindAxis("LookUpRate", this, &ARepelTheUprisingCharacter::LookUpAtRate);
-
-	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &ARepelTheUprisingCharacter::ToggleCrouching);
-	
+		// Crouching
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &ARepelTheUprisingCharacter::ToggleCrouching);
+	}
 }
 
 void ARepelTheUprisingCharacter::DoForwardSphereTrace()
@@ -180,24 +184,6 @@ void ARepelTheUprisingCharacter::Hang()
 	}
 }
 
-void ARepelTheUprisingCharacter::TurnAtRate(float Rate)
-{
-	if (!bIsClimbing)
-	{
-		// calculate delta for this frame from the rate information
-		AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
-	}
-}
-
-void ARepelTheUprisingCharacter::LookUpAtRate(float Rate)
-{
-	if (!bIsClimbing)
-	{
-		// calculate delta for this frame from the rate information
-		AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
-	}
-}
-
 void ARepelTheUprisingCharacter::ToggleCrouching()
 {
 	if (!bIsCrouching && !bIsClimbing)
@@ -224,58 +210,15 @@ void ARepelTheUprisingCharacter::Tick(float DeltaSeconds)
 
 		ClimbCheckTime -= DeltaSeconds;
 	}
-
 }
 
 void ARepelTheUprisingCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
-	{
-		AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &ARepelTheUprisingCharacter::OnAnimNotifyBegin);
-	}
-	
-	MaximumWallClimbDistance = (GetCapsuleComponent()->GetScaledCapsuleHalfHeight() / 2) * -1.f;
-	DefaultWalkSpeed = GetMovementComponent()->GetMaxSpeed();
-	MaxRunSpeed = GetMovementComponent()->GetMaxSpeed() * 1.5;
-}
-
-void ARepelTheUprisingCharacter::MoveForward(float Value)
-{
-	if ((Controller != nullptr) && (Value != 0.0f) && !bIsClimbing)
-	{
-		// find out which way is forward
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
-
-		// get forward vector
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		AddMovementInput(Direction, Value);
-	}
-}
-
-void ARepelTheUprisingCharacter::MoveRight(float Value)
-{
-	if ( (Controller != nullptr) && (Value != 0.0f) && !bIsClimbing)
-	{
-		// find out which way is right
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
-	
-		// get right vector 
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-		// add movement in that direction
-		AddMovementInput(Direction, Value);
-	}
-}
-
-void ARepelTheUprisingCharacter::StartTurn(float Value)
-{
-	if (!bIsClimbing)
-	{
-		AddControllerYawInput(Value);
-	}
+		
+	SetEnhancedSubsystem();
+	GetAnimInst();
+	SetDefaultVariables();
 }
 
 void ARepelTheUprisingCharacter::StartJump()
@@ -338,6 +281,33 @@ void ARepelTheUprisingCharacter::OnAnimNotifyBegin(FName NotifyName, const FBran
 	UKismetSystemLibrary::MoveComponentTo(GetCapsuleComponent(), LocationToMoveTo, RotationToMoveTo, true, true, 0.2f, false, EMoveComponentAction::Move, ActionInfo);
 }
 
+void ARepelTheUprisingCharacter::SetEnhancedSubsystem() const
+{
+	// Try to get the controlled player and set their Enhanced Input settings
+	if (const APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			Subsystem->AddMappingContext(DefaultMappingContext, 0);
+		}
+	}
+}
+
+void ARepelTheUprisingCharacter::GetAnimInst()
+{
+	// Get the animation assigned to this player
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &ARepelTheUprisingCharacter::OnAnimNotifyBegin);
+	}
+}
+
+void ARepelTheUprisingCharacter::SetDefaultVariables()
+{
+	MaximumWallClimbDistance = (GetCapsuleComponent()->GetScaledCapsuleHalfHeight() / 2) * -1.f;
+	DefaultWalkSpeed = GetMovementComponent()->GetMaxSpeed();
+	MaxRunSpeed = GetMovementComponent()->GetMaxSpeed() * MaxSpeedMultiplier;
+}
 
 void ARepelTheUprisingCharacter::DropDown()
 {
@@ -347,5 +317,41 @@ void ARepelTheUprisingCharacter::DropDown()
 		bIsClimbing = false;
 		GetCharacterMovement()->SetMovementMode(MOVE_Falling);
 		this->StopAnimMontage(HangMontage);
+	}
+}
+
+void ARepelTheUprisingCharacter::Move(const FInputActionValue& Value)
+{
+	// input is a Vector2D
+	FVector2D MovementVector = Value.Get<FVector2D>();
+
+	if (Controller != nullptr)
+	{
+		// find out which way is forward
+		const FRotator Rotation = Controller->GetControlRotation();
+		const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+		// get forward vector
+		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+	
+		// get right vector 
+		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+		// add movement 
+		AddMovementInput(ForwardDirection, MovementVector.Y);
+		AddMovementInput(RightDirection, MovementVector.X);
+	}
+}
+
+void ARepelTheUprisingCharacter::Look(const FInputActionValue& Value)
+{
+	// input is a Vector2D
+	FVector2D LookAxisVector = Value.Get<FVector2D>();
+
+	if (Controller != nullptr)
+	{
+		// add yaw and pitch input to controller.  There is a modifier in the editor but this doesn't work with the X Axis which needs reversing
+		AddControllerYawInput(LookAxisVector.X * -1.f);
+		AddControllerPitchInput(LookAxisVector.Y);
 	}
 }

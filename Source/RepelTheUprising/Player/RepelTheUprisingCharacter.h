@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "InputActionValue.h"
 #include "RepelTheUprisingCharacter.generated.h"
 
 UCLASS(config=Game)
@@ -56,6 +57,43 @@ private:
 	// Amount of time before the auto climb happens
 	UPROPERTY(EditDefaultsOnly, Category="Climbing", meta=(AllowPrivateAccess="true"))
 	float TimeBeforeAutoClimb = 0.2f;
+
+	/** MappingContext */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputMappingContext> DefaultMappingContext;
+
+	/** Jump Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> JumpAction;
+
+	/** Run Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> RunAction;
+
+	/** Climb Up Action Input */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> ClimbUpAction;
+
+	/** Drop Down Action Input */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> DropDownAction;
+
+	/** Crouch Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> CrouchAction;
+
+	/** Move Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* MoveAction;
+	
+	/** Look Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* LookAction;
+
+
+	// Speed multiplier when player is running
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Running, meta = (AllowPrivateAccess = "true"))
+	float MaxSpeedMultiplier = 1.5f;
 public:
 	ARepelTheUprisingCharacter();
 
@@ -67,51 +105,40 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
 
-protected:
-	/** Called every frame */
-	virtual void Tick(float DeltaSeconds) override;
-
-	/** Called on game start */
-	virtual void BeginPlay() override;
-	
-	/** Called for forwards/backward input */
-	void MoveForward(float Value);
-
-	/** Called for side to side input */
-	void MoveRight(float Value);
-
-	/** Called when the player moves the mouse to look */
-	void StartTurn(float Value);
-
-	/** Called the player jumps */
+	/** Called when the player jumps */
 	void StartJump();
 
 	/** Called when the player stops jumping */
 	void EndJump();
-
+	
 	/** Called when the player holds the run key */
 	void StartRunning();
 
 	/** Called when the player releases the run key */
 	void EndRunning();
 
+	void SetClimbCheckTime(const float CheckTimeIn) { ClimbCheckTime = CheckTimeIn; }
+
+protected:
+	/** Called every frame */
+	virtual void Tick(float DeltaSeconds) override;
+
+	/** Called on game start */
+	virtual void BeginPlay() override;
+
 	/** Called when the player climbs up a ledge */
 	void ClimbUp();
 
 	/** Called when the player drops down from a ledge */
 	void DropDown();
-	/** 
-	 * Called via input to turn at a given rate. 
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void TurnAtRate(float Rate);
 
-	/**
-	 * Called via input to turn look up/down at a given rate. 
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void LookUpAtRate(float Rate);
+	/** Called for movement input */
+	void Move(const FInputActionValue& Value);
 
+	/** Called for looking input */
+	void Look(const FInputActionValue& Value);
+
+	/** Called when toggling */
 	void ToggleCrouching();
 
 	// APawn interface
@@ -146,5 +173,10 @@ private:
 	float DefaultWalkSpeed;
 	float MaxRunSpeed;
 	bool bIsRunning = false;
+
+	// Things to be put in Begin Play
+	void SetEnhancedSubsystem() const;
+	void GetAnimInst();
+	void SetDefaultVariables();
 };
 

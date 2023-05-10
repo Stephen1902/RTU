@@ -5,5 +5,5 @@
 
 ARepelTheUprisingGameMode::ARepelTheUprisingGameMode()
 {
-	// set default pawn class to our Blueprinted character
+
 }
