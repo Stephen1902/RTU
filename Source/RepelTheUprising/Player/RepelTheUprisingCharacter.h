@@ -7,6 +7,31 @@
 #include "InputActionValue.h"
 #include "RepelTheUprisingCharacter.generated.h"
 
+USTRUCT()
+struct FInteractionData
+{
+	GENERATED_BODY();
+
+	FInteractionData()
+	{
+		ViewedInteractionComponent = nullptr;
+		LastInteractionCheckTime = 0.f;
+		bIsInteractHeld = false;
+	}
+
+	// The currently viewed component
+	UPROPERTY()
+	TObjectPtr<class UInteractionComponent> ViewedInteractionComponent;
+
+	// Time since we last checked for an interaction component
+	UPROPERTY()
+	double LastInteractionCheckTime;
+
+	// Whether the local player is holding the interact key
+	UPROPERTY()
+	bool bIsInteractHeld;
+};
+
 UCLASS(config=Game)
 class ARepelTheUprisingCharacter : public ACharacter
 {
@@ -90,10 +115,17 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 
-
 	// Speed multiplier when player is running
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Running, meta = (AllowPrivateAccess = "true"))
-	float MaxSpeedMultiplier = 1.5f;
+	double MaxSpeedMultiplier = 1.5f;
+
+	// Times between interaction checks
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	double TimeBetweenInteractionChecks = 0.1f;
+
+	// Distance in front of the player to check for interactive items
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	double LineTraceDistance = 300.f;
 public:
 	ARepelTheUprisingCharacter();
 
@@ -118,6 +150,20 @@ public:
 	void EndRunning();
 
 	void SetClimbCheckTime(const float CheckTimeIn) { ClimbCheckTime = CheckTimeIn; }
+
+	//True if we're interacting with an item that has an interaction time (for example a lamp that takes 2 seconds to turn on)
+	bool IsInteracting() const;
+
+	//Get the time till we interact with the current interaction component
+	float GetRemainingInteractTime() const;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerBeginInteract();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerEndInteract();
+
+	void Interact();
 
 protected:
 	/** Called every frame */
@@ -178,5 +224,19 @@ private:
 	void SetEnhancedSubsystem() const;
 	void GetAnimInst();
 	void SetDefaultVariables();
+
+	// For Interactions
+	UPROPERTY()
+	FInteractionData InteractionData;
+	// Helper function to easily get the viewed interaction component
+	UInteractionComponent* GetInteractionComp() const { return InteractionData.ViewedInteractionComponent; }
+	TObjectPtr<class UInteractionComponent> InteractiveRef = nullptr;
+	FTimerHandle TimerHandle_Interact;
+	double TimeSinceLastInteraction = 0.f;
+	void DoInteractionCheck();
+	void CouldntFindInteractionComp();
+	void FoundNewInteractionComp(TObjectPtr<UInteractionComponent> InteractionCompIn);
+	void BeginInteract();
+	void EndInteract();
 };
 

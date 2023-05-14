@@ -11,6 +11,7 @@
 #include "GameFramework/Controller.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "RepelTheUprising/Interactive/InteractionComponent.h"
 
 #define COLLISION_CanClimb ECC_GameTraceChannel1
 
@@ -210,6 +211,19 @@ void ARepelTheUprisingCharacter::Tick(float DeltaSeconds)
 
 		ClimbCheckTime -= DeltaSeconds;
 	}
+	else
+	{
+		// Check there is not already an interaction taking place
+		if (InteractiveRef == nullptr)
+		{
+			TimeSinceLastInteraction -= DeltaSeconds;
+			//  Check whether the time between interactions has passed, check for an interactive component if it has
+			if (TimeSinceLastInteraction <= 0.f )
+			{
+				DoInteractionCheck();
+			}
+		}
+	}
 }
 
 void ARepelTheUprisingCharacter::BeginPlay()
@@ -219,6 +233,8 @@ void ARepelTheUprisingCharacter::BeginPlay()
 	SetEnhancedSubsystem();
 	GetAnimInst();
 	SetDefaultVariables();
+
+
 }
 
 void ARepelTheUprisingCharacter::StartJump()
@@ -250,6 +266,27 @@ void ARepelTheUprisingCharacter::EndRunning()
 {
 	bIsRunning = false;
 	GetCharacterMovement()->MaxWalkSpeed = DefaultWalkSpeed;
+}
+
+bool ARepelTheUprisingCharacter::IsInteracting() const
+{
+	
+	return GetWorldTimerManager().IsTimerActive(TimerHandle_Interact);
+}
+
+float ARepelTheUprisingCharacter::GetRemainingInteractTime() const
+{
+	return GetWorldTimerManager().GetTimerRemaining(TimerHandle_Interact);
+}
+
+void ARepelTheUprisingCharacter::ServerBeginInteract_Implementation()
+{
+	BeginInteract();
+}
+
+bool ARepelTheUprisingCharacter::ServerBeginInteract_Validate()
+{
+	return true;
 }
 
 void ARepelTheUprisingCharacter::ClimbUp()
@@ -307,6 +344,153 @@ void ARepelTheUprisingCharacter::SetDefaultVariables()
 	MaximumWallClimbDistance = (GetCapsuleComponent()->GetScaledCapsuleHalfHeight() / 2) * -1.f;
 	DefaultWalkSpeed = GetMovementComponent()->GetMaxSpeed();
 	MaxRunSpeed = GetMovementComponent()->GetMaxSpeed() * MaxSpeedMultiplier;
+}
+
+void ARepelTheUprisingCharacter::DoInteractionCheck()
+{
+	// Reset the time to check for a new interaction
+	TimeSinceLastInteraction = TimeBetweenInteractionChecks;
+
+	// Get the location and rotation of where the player is looking
+	FVector EyesLocation;
+	FRotator EyesRotation;
+	GetController()->GetActorEyesViewPoint(EyesLocation, EyesRotation);
+
+	const FVector TraceStart = EyesLocation;
+	const FVector TraceEnd = (EyesRotation.Vector() * LineTraceDistance) + TraceStart;
+	FHitResult HitResult;
+
+	FCollisionQueryParams QueryParams;
+	// Make sure we don't check for ourselves
+	QueryParams.AddIgnoredActor(this);
+
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
+	{
+		//Check if we hit an InteractionComp object
+		if (HitResult.GetActor())
+		{
+			if (UInteractionComponent* InteractionComponent = Cast<UInteractionComponent>(HitResult.GetActor()->GetComponentByClass(UInteractionComponent::StaticClass())))
+			{
+				float Distance = (TraceStart - HitResult.ImpactPoint).Size();
+				// Check to make sure that the distance the player is away from the interaction component is within where the IC can be interacted with
+				if (InteractionComponent != GetInteractionComp() && Distance <= InteractionComponent->InteractionDistance)
+				{
+					FoundNewInteractionComp(InteractionComponent);
+				}
+				else if (Distance > InteractionComponent->InteractionDistance && GetInteractionComp())
+				{
+					CouldntFindInteractionComp();
+				}
+
+				return;
+			}
+		}
+	}
+}
+
+void ARepelTheUprisingCharacter::CouldntFindInteractionComp()
+{
+	// Player has lost focus on an interaction component. Clear the timer.
+	if (GetWorldTimerManager().IsTimerActive(TimerHandle_Interact))
+	{
+		GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
+	}
+
+	//Tell the interaction component we've stopped focusing on it, and clear it.
+	if (UInteractionComponent* InteractionComp = GetInteractionComp())
+	{
+		InteractionComp->EndFocus(this);
+
+		if (InteractionData.bIsInteractHeld)
+		{
+			EndInteract();
+		}
+	}
+
+	InteractionData.ViewedInteractionComponent = nullptr;
+}
+
+void ARepelTheUprisingCharacter::FoundNewInteractionComp(TObjectPtr<UInteractionComponent> InteractionCompIn)
+{
+	// Clear the old interaction component, if there is one
+	EndInteract();
+
+	if (UInteractionComponent* OldInteractionComp = GetInteractionComp())
+	{
+		OldInteractionComp->EndFocus(this);
+	}
+
+	InteractionData.ViewedInteractionComponent = InteractionCompIn;
+	InteractionCompIn->BeginFocus(this);
+}
+
+void ARepelTheUprisingCharacter::BeginInteract()
+{
+	if (!HasAuthority())
+	{
+		ServerBeginInteract();
+	}
+
+	/**As an optimization, the server only checks that we're looking at an item once we begin interacting with it.
+	This saves the server doing a check every tick for an InteractionComp Item. The exception is a non-instant interact.
+	In this case, the server will check every tick for the duration of the interact*/
+	if (HasAuthority())
+	{
+		DoInteractionCheck();
+	}
+
+	InteractionData.bIsInteractHeld = true;
+
+	if (UInteractionComponent* InteractionComp = GetInteractionComp())
+	{
+		InteractionComp->BeginInteract(this);
+
+		if (FMath::IsNearlyZero(InteractionComp->InteractionTime))
+		{
+			Interact();
+		}
+		else
+		{
+			GetWorldTimerManager().SetTimer(TimerHandle_Interact, this, &ARepelTheUprisingCharacter::Interact, InteractionComp->InteractionTime, false);
+		}
+	}
+}
+
+void ARepelTheUprisingCharacter::EndInteract()
+{
+	if (!HasAuthority())
+	{
+		ServerEndInteract();
+	}
+
+	InteractionData.bIsInteractHeld = false;
+
+	GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
+
+	if (UInteractionComponent* InteractionComp = GetInteractionComp())
+	{
+		InteractionComp->EndInteract(this);
+	}
+}
+
+void ARepelTheUprisingCharacter::ServerEndInteract_Implementation()
+{
+	EndInteract();
+}
+
+bool ARepelTheUprisingCharacter::ServerEndInteract_Validate()
+{
+	return true;
+}
+
+void ARepelTheUprisingCharacter::Interact()
+{
+	GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
+
+	if (UInteractionComponent* InteractionComp = GetInteractionComp())
+	{
+		InteractionComp->Interact(this);
+	}
 }
 
 void ARepelTheUprisingCharacter::DropDown()
