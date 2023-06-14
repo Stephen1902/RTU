@@ -11,7 +11,10 @@
 #include "GameFramework/Controller.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "RepelTheUprising/HealthComponent.h"
+#include "RepelTheUprising/StaminaComponent.h"
 #include "RepelTheUprising/Interactive/InteractionComponent.h"
+#include "Net/UnrealNetwork.h"
 
 #define COLLISION_CanClimb ECC_GameTraceChannel1
 
@@ -73,6 +76,9 @@ ARepelTheUprisingCharacter::ARepelTheUprisingCharacter()
 	BackpackMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Backpack Mesh"));
 	BackpackMesh->SetupAttachment(GetMesh());
 	BackpackMesh->SetLeaderPoseComponent(GetMesh());
+
+	HealthComponent = CreateDefaultSubobject<UHealthComponent>(TEXT("Health Component"));
+	StaminaComponent = CreateDefaultSubobject<UStaminaComponent>(TEXT("Stamina Component"));
 	
 	//////////////////////////////////////////////////////////////////////////
 	// Input
@@ -213,15 +219,14 @@ void ARepelTheUprisingCharacter::Tick(float DeltaSeconds)
 	}
 	else
 	{
-		// Check there is not already an interaction taking place
-		if (InteractiveRef == nullptr)
+		// Check whether player needs to look for an interactable component
+		TimeSinceLastInteraction -= DeltaSeconds;
+		//  Check whether the time between interactions has passed, check for an interactive component if it has
+		if (TimeSinceLastInteraction <= 0.f )
 		{
-			TimeSinceLastInteraction -= DeltaSeconds;
-			//  Check whether the time between interactions has passed, check for an interactive component if it has
-			if (TimeSinceLastInteraction <= 0.f )
-			{
-				DoInteractionCheck();
-			}
+			// Reset the time to check for a new interaction
+			TimeSinceLastInteraction = TimeBetweenInteractionChecks;
+			DoInteractionCheck();
 		}
 	}
 }
@@ -231,9 +236,13 @@ void ARepelTheUprisingCharacter::BeginPlay()
 	Super::BeginPlay();
 		
 	SetEnhancedSubsystem();
-	GetAnimInst();
+	// Set the variables that need to be used by the server
 	SetDefaultVariables();
 
+	if (HealthComponent)
+	{
+//		HealthComponent->OnHealthChanged.AddDynamic(this, &ARepelTheUprisingCharacter::OnHealthIsChanged);
+	}
 
 }
 
@@ -258,14 +267,26 @@ void ARepelTheUprisingCharacter::EndJump()
 
 void ARepelTheUprisingCharacter::StartRunning()
 {
+	if (!HasAuthority())
+	{
+		Server_OnStartRunning();
+	}
+	
 	bIsRunning = true;
 	GetCharacterMovement()->MaxWalkSpeed = MaxRunSpeed;
+	UE_LOG(LogTemp, Warning, TEXT("%s is now moving at %s"), *GetName(), *FString::SanitizeFloat(GetCharacterMovement()->GetMaxSpeed()))
 }
 
 void ARepelTheUprisingCharacter::EndRunning()
 {
+	if (!HasAuthority())
+	{
+		Server_OnEndRunning();
+	}
+	
 	bIsRunning = false;
 	GetCharacterMovement()->MaxWalkSpeed = DefaultWalkSpeed;
+	UE_LOG(LogTemp, Warning, TEXT("%s is now moving at %s"), *GetName(), *FString::SanitizeFloat(GetCharacterMovement()->GetMaxSpeed()))
 }
 
 bool ARepelTheUprisingCharacter::IsInteracting() const
@@ -330,34 +351,38 @@ void ARepelTheUprisingCharacter::SetEnhancedSubsystem() const
 	}
 }
 
-void ARepelTheUprisingCharacter::GetAnimInst()
+void ARepelTheUprisingCharacter::SetDefaultVariables()
 {
+	if (!HasAuthority())
+	{
+		Server_SetMovementVariables();
+	}
+
 	// Get the animation assigned to this player
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 		AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &ARepelTheUprisingCharacter::OnAnimNotifyBegin);
 	}
-}
-
-void ARepelTheUprisingCharacter::SetDefaultVariables()
-{
+	
 	MaximumWallClimbDistance = (GetCapsuleComponent()->GetScaledCapsuleHalfHeight() / 2) * -1.f;
 	DefaultWalkSpeed = GetMovementComponent()->GetMaxSpeed();
 	MaxRunSpeed = GetMovementComponent()->GetMaxSpeed() * MaxSpeedMultiplier;
+
+	UE_LOG(LogTemp, Warning, TEXT("%s has default speed of %s and max speed of %s"), *GetName(), *FString::SanitizeFloat(DefaultWalkSpeed), *FString::SanitizeFloat(MaxRunSpeed));
+}
+
+void ARepelTheUprisingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ARepelTheUprisingCharacter, bIsRunning);
 }
 
 void ARepelTheUprisingCharacter::DoInteractionCheck()
 {
-	// Reset the time to check for a new interaction
-	TimeSinceLastInteraction = TimeBetweenInteractionChecks;
-
 	// Get the location and rotation of where the player is looking
-	FVector EyesLocation;
-	FRotator EyesRotation;
-	GetController()->GetActorEyesViewPoint(EyesLocation, EyesRotation);
-
-	const FVector TraceStart = EyesLocation;
-	const FVector TraceEnd = (EyesRotation.Vector() * LineTraceDistance) + TraceStart;
+	const FVector TraceStart = CameraComp->GetComponentLocation();
+	const FVector TraceEnd = (CameraComp->GetForwardVector() * LineTraceDistance) + TraceStart;
 	FHitResult HitResult;
 
 	FCollisionQueryParams QueryParams;
@@ -381,11 +406,12 @@ void ARepelTheUprisingCharacter::DoInteractionCheck()
 				{
 					CouldntFindInteractionComp();
 				}
-
 				return;
 			}
 		}
 	}
+	// If not interaction component is found, clear the old one out
+	CouldntFindInteractionComp();
 }
 
 void ARepelTheUprisingCharacter::CouldntFindInteractionComp()
@@ -395,7 +421,7 @@ void ARepelTheUprisingCharacter::CouldntFindInteractionComp()
 	{
 		GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
 	}
-
+	
 	//Tell the interaction component we've stopped focusing on it, and clear it.
 	if (UInteractionComponent* InteractionComp = GetInteractionComp())
 	{
@@ -462,7 +488,7 @@ void ARepelTheUprisingCharacter::EndInteract()
 	{
 		ServerEndInteract();
 	}
-
+	
 	InteractionData.bIsInteractHeld = false;
 
 	GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
@@ -471,6 +497,47 @@ void ARepelTheUprisingCharacter::EndInteract()
 	{
 		InteractionComp->EndInteract(this);
 	}
+}
+
+void ARepelTheUprisingCharacter::Server_SetMovementVariables_Implementation()
+{
+	SetDefaultVariables();
+}
+
+/*
+void ARepelTheUprisingCharacter::OnHealthIsChanged(UHealthComponent* HealthComponent, double NewHealth, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
+{
+}
+*/
+void ARepelTheUprisingCharacter::Server_OnEndRunning_Implementation()
+{
+	EndRunning();
+}
+
+bool ARepelTheUprisingCharacter::Server_OnEndRunning_Validate()
+{
+	if (StaminaComponent)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+
+void ARepelTheUprisingCharacter::Server_OnStartRunning_Implementation()
+{
+	StartRunning();
+}
+
+bool ARepelTheUprisingCharacter::Server_OnStartRunning_Validate()
+{
+	if (StaminaComponent)
+	{
+		return true;
+	}
+
+	return false;
 }
 
 void ARepelTheUprisingCharacter::ServerEndInteract_Implementation()

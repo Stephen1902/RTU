@@ -59,6 +59,12 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
 	USkeletalMeshComponent* BackpackMesh;
 
+	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	class UHealthComponent* HealthComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	class UStaminaComponent* StaminaComponent;
+	
 	// Montage to be used when the player is hanging from a ledge
 	UPROPERTY(EditDefaultsOnly, Category="Climbing", meta=(AllowPrivateAccess="true"))
 	UAnimMontage* HangMontage;
@@ -115,13 +121,16 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* StaminaAction;
+
 	// Speed multiplier when player is running
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Running, meta = (AllowPrivateAccess = "true"))
 	double MaxSpeedMultiplier = 1.5f;
 
-	// Times between interaction checks
+	// Times between interaction checks, set to 0 if checking every frame
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	double TimeBetweenInteractionChecks = 0.1f;
+	double TimeBetweenInteractionChecks = 0.0f;
 
 	// Distance in front of the player to check for interactive items
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -218,12 +227,14 @@ private:
 
 	float DefaultWalkSpeed;
 	float MaxRunSpeed;
+	UPROPERTY(Replicated)
 	bool bIsRunning = false;
 
 	// Things to be put in Begin Play
 	void SetEnhancedSubsystem() const;
-	void GetAnimInst();
 	void SetDefaultVariables();
+
+	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
 
 	// For Interactions
 	UPROPERTY()
@@ -238,5 +249,19 @@ private:
 	void FoundNewInteractionComp(TObjectPtr<UInteractionComponent> InteractionCompIn);
 	void BeginInteract();
 	void EndInteract();
+
+	// Current Level of this character, used with a data table to update other information
+	int32 CurrentLevel;
+/*
+	UFUNCTION()
+	void OnHealthIsChanged(UHealthComponent* HealthComponent, double NewHealth, const UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+*/
+	// For Stamina and movement
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_OnStartRunning();
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_OnEndRunning();
+	UFUNCTION(Server, Reliable)
+	void Server_SetMovementVariables();
 };
 

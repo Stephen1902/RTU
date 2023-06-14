@@ -1,9 +1,8 @@
 // Copyright 2023 DME Games
 
 #include "InteractionComponent.h"
-
 #include "InteractionWidget.h"
-#include "RepelTheUprising/Player/RepelTheUprisingCharacter.h"
+#include "../Player/RepelTheUprisingCharacter.h"
 
 UInteractionComponent::UInteractionComponent()
 {
@@ -19,7 +18,7 @@ UInteractionComponent::UInteractionComponent()
 
 	// Set the widget so it only appears in local space at a specific size
 	Space = EWidgetSpace::Screen;
-	DrawSize = FIntPoint(400, 100);
+	DrawSize = FIntPoint(600, 100);
 	bDrawAtDesiredSize = true;
 
 	// Set the component as active but keep it hidden
