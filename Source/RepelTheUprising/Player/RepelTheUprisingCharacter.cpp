@@ -4,6 +4,7 @@
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "PlayerInGameWidget.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -15,6 +16,8 @@
 #include "RepelTheUprising/StaminaComponent.h"
 #include "RepelTheUprising/Interactive/InteractionComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "PlayerInGameWidget.h"
+#include "Kismet/GameplayStatics.h"
 
 #define COLLISION_CanClimb ECC_GameTraceChannel1
 
@@ -244,6 +247,7 @@ void ARepelTheUprisingCharacter::BeginPlay()
 //		HealthComponent->OnHealthChanged.AddDynamic(this, &ARepelTheUprisingCharacter::OnHealthIsChanged);
 	}
 
+	CreatePlayerWidgets();
 }
 
 void ARepelTheUprisingCharacter::StartJump()
@@ -496,6 +500,20 @@ void ARepelTheUprisingCharacter::EndInteract()
 	if (UInteractionComponent* InteractionComp = GetInteractionComp())
 	{
 		InteractionComp->EndInteract(this);
+	}
+}
+
+void ARepelTheUprisingCharacter::CreatePlayerWidgets()
+{
+	if (MainWidget)
+	{
+		MainWidgetRef = CreateWidget<UPlayerInGameWidget>(GetWorld(), MainWidget);
+		MainWidgetRef->AddToViewport();
+		MainWidgetRef->SetPlayerCharacterRef(this);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Main Widget Ref is not set in Player Character"));
 	}
 }
 

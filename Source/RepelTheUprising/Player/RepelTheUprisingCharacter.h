@@ -15,7 +15,7 @@ struct FInteractionData
 	FInteractionData()
 	{
 		ViewedInteractionComponent = nullptr;
-		LastInteractionCheckTime = 0.f;
+		LastInteractionCheckTime = 0.0;
 		bIsInteractHeld = false;
 	}
 
@@ -89,6 +89,11 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category="Climbing", meta=(AllowPrivateAccess="true"))
 	float TimeBeforeAutoClimb = 0.2f;
 
+	/** In game widgets the player will see on their screen */
+	// In game widget
+	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	TSubclassOf<UUserWidget> MainWidget;  
+
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UInputMappingContext> DefaultMappingContext;
@@ -126,15 +131,15 @@ private:
 
 	// Speed multiplier when player is running
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Running, meta = (AllowPrivateAccess = "true"))
-	double MaxSpeedMultiplier = 1.5f;
+	double MaxSpeedMultiplier = 1.5;
 
 	// Times between interaction checks, set to 0 if checking every frame
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	double TimeBetweenInteractionChecks = 0.0f;
+	double TimeBetweenInteractionChecks = 0.0;
 
 	// Distance in front of the player to check for interactive items
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	double LineTraceDistance = 300.f;
+	double LineTraceDistance = 300.0;
 public:
 	ARepelTheUprisingCharacter();
 
@@ -243,7 +248,7 @@ private:
 	UInteractionComponent* GetInteractionComp() const { return InteractionData.ViewedInteractionComponent; }
 	TObjectPtr<class UInteractionComponent> InteractiveRef = nullptr;
 	FTimerHandle TimerHandle_Interact;
-	double TimeSinceLastInteraction = 0.f;
+	double TimeSinceLastInteraction = 0.0;
 	void DoInteractionCheck();
 	void CouldntFindInteractionComp();
 	void FoundNewInteractionComp(TObjectPtr<UInteractionComponent> InteractionCompIn);
@@ -252,10 +257,7 @@ private:
 
 	// Current Level of this character, used with a data table to update other information
 	int32 CurrentLevel;
-/*
-	UFUNCTION()
-	void OnHealthIsChanged(UHealthComponent* HealthComponent, double NewHealth, const UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
-*/
+
 	// For Stamina and movement
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_OnStartRunning();
@@ -263,5 +265,9 @@ private:
 	void Server_OnEndRunning();
 	UFUNCTION(Server, Reliable)
 	void Server_SetMovementVariables();
+
+	// For on screen widgets
+	TObjectPtr<class UPlayerInGameWidget> MainWidgetRef;
+	void CreatePlayerWidgets();
 };
 
