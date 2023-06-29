@@ -7,6 +7,8 @@
 #include "InputActionValue.h"
 #include "RepelTheUprisingCharacter.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStaminaUpdated, class ARepelTheUprisingCharacter*, PlayerCharacter, float, NewStamina);
+
 USTRUCT()
 struct FInteractionData
 {
@@ -127,7 +129,7 @@ private:
 	UInputAction* LookAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* StaminaAction;
+	UInputAction* SprintAction;
 
 	// Speed multiplier when player is running
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Running, meta = (AllowPrivateAccess = "true"))
@@ -140,6 +142,10 @@ private:
 	// Distance in front of the player to check for interactive items
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	double LineTraceDistance = 300.0;
+
+	UFUNCTION()
+	void OnHealthIsChanged(UHealthComponent* OwningHealthComp, float Health, float HealthDelta, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+
 public:
 	ARepelTheUprisingCharacter();
 
@@ -156,12 +162,6 @@ public:
 
 	/** Called when the player stops jumping */
 	void EndJump();
-	
-	/** Called when the player holds the run key */
-	void StartRunning();
-
-	/** Called when the player releases the run key */
-	void EndRunning();
 
 	void SetClimbCheckTime(const float CheckTimeIn) { ClimbCheckTime = CheckTimeIn; }
 
@@ -178,6 +178,9 @@ public:
 	void ServerEndInteract();
 
 	void Interact();
+
+	UPROPERTY(BlueprintAssignable)
+	FOnStaminaUpdated OnStaminaUpdated;
 
 protected:
 	/** Called every frame */
@@ -205,7 +208,17 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	// End of APawn interface
 
+	UFUNCTION(Server, Reliable)
+	void Server_ModifySprintStatus(bool bNewSprintStatus);
+
 private:
+	/** Called for sprint input */
+	void BeginSprint(const FInputActionValue& Value);
+	void EndSprint(const FInputActionValue& Value);
+	void ModifySprintStatus(bool bNewSprintStatus);
+	UFUNCTION()
+	void OnStaminaChange(float CurrentStaminaIn);
+
 	bool bIsCrouching = false;
 
 	// Variables for jumping and grabbing a ledge
@@ -257,15 +270,10 @@ private:
 
 	// Current Level of this character, used with a data table to update other information
 	int32 CurrentLevel;
-
-	// For Stamina and movement
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_OnStartRunning();
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_OnEndRunning();
+	
 	UFUNCTION(Server, Reliable)
 	void Server_SetMovementVariables();
-
+	
 	// For on screen widgets
 	TObjectPtr<class UPlayerInGameWidget> MainWidgetRef;
 	void CreatePlayerWidgets();

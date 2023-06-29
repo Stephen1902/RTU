@@ -55,7 +55,7 @@ void UHealthComponent::HandleDamage(AActor* DamagedActor, float Damage, const UD
 	// Update the current health ensuring it does not go below zero or above max / default health
 	CurrentHealth = FMath::Clamp(CurrentHealth - Damage, 0.f, DefaultHealth);
 	TimeSinceLastDamage = 0.f;
-	OnHealthChanged.Broadcast(this, CurrentHealth, DamageType, InstigatedBy, DamageCauser);
+	OnHealthChanged.Broadcast(this, CurrentHealth, Damage, DamageType, InstigatedBy, DamageCauser);
 }
 
 void UHealthComponent::TryToHeal(float DeltaTime)
@@ -67,7 +67,7 @@ void UHealthComponent::TryToHeal(float DeltaTime)
 		if (TimeSinceLastDamage >= TimeBeforeHealing)
 		{
 			CurrentHealth += FMath::Clamp(CurrentHealth + (HealthRegenPerSecond * DeltaTime), 0.f, DefaultHealth);
-			OnHealthChanged.Broadcast(this, CurrentHealth, nullptr, nullptr, nullptr);
+			OnHealthChanged.Broadcast(this, CurrentHealth, 0.0, nullptr, nullptr, nullptr);
 		}
 	}
 }

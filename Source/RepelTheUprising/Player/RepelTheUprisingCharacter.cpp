@@ -16,13 +16,12 @@
 #include "RepelTheUprising/StaminaComponent.h"
 #include "RepelTheUprising/Interactive/InteractionComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "PlayerInGameWidget.h"
-#include "Kismet/GameplayStatics.h"
 
 #define COLLISION_CanClimb ECC_GameTraceChannel1
 
 //////////////////////////////////////////////////////////////////////////
 // ARepelTheUprisingCharacter
+
 
 ARepelTheUprisingCharacter::ARepelTheUprisingCharacter()
 {
@@ -99,8 +98,6 @@ void ARepelTheUprisingCharacter::SetupPlayerInputComponent(class UInputComponent
 
 		// Move Actions
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ARepelTheUprisingCharacter::Move);
-		EnhancedInputComponent->BindAction(RunAction,ETriggerEvent::Triggered, this, &ARepelTheUprisingCharacter::StartRunning);
-		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Completed, this, &ARepelTheUprisingCharacter::EndRunning);
 
 		//Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ARepelTheUprisingCharacter::Look);
@@ -111,7 +108,55 @@ void ARepelTheUprisingCharacter::SetupPlayerInputComponent(class UInputComponent
 
 		// Crouching
 		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &ARepelTheUprisingCharacter::ToggleCrouching);
+
+		// Sprinting
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ARepelTheUprisingCharacter::BeginSprint);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ARepelTheUprisingCharacter::EndSprint);
 	}
+}
+
+void ARepelTheUprisingCharacter::BeginSprint(const FInputActionValue& Value)
+{
+	// Check that this character has stamina to use
+	if (StaminaComponent && !FMath::IsNearlyZero(StaminaComponent->GetCurrentStamina()))
+	{
+		ModifySprintStatus(true);	
+	}
+}
+
+void ARepelTheUprisingCharacter::EndSprint(const FInputActionValue& Value)
+{
+	ModifySprintStatus(false);
+}
+
+void ARepelTheUprisingCharacter::ModifySprintStatus(bool bNewSprintStatus)
+{
+	if (!HasAuthority())
+	{
+		Server_ModifySprintStatus(bNewSprintStatus);
+	}
+	else
+	{
+		if (StaminaComponent)
+		{
+			StaminaComponent->SetStaminaShouldDrain(bNewSprintStatus);
+		}
+	}
+}
+
+void ARepelTheUprisingCharacter::OnStaminaChange(float CurrentStaminaIn)
+{
+	// If this character has run out of stamina, stop them being able to do the things stamina requires
+	if (FMath::IsNearlyZero(CurrentStaminaIn))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("%s has run out of stamina"), *GetName());
+		ModifySprintStatus(false);
+	}
+}
+
+void ARepelTheUprisingCharacter::Server_ModifySprintStatus_Implementation(bool bNewSprintStatus)
+{
+	ModifySprintStatus(bNewSprintStatus);
 }
 
 void ARepelTheUprisingCharacter::DoForwardSphereTrace()
@@ -244,10 +289,16 @@ void ARepelTheUprisingCharacter::BeginPlay()
 
 	if (HealthComponent)
 	{
-//		HealthComponent->OnHealthChanged.AddDynamic(this, &ARepelTheUprisingCharacter::OnHealthIsChanged);
+		HealthComponent->OnHealthChanged.AddDynamic(this, &ARepelTheUprisingCharacter::OnHealthIsChanged);
+	}
+
+	if (StaminaComponent)
+	{
+		StaminaComponent->OnStaminaChanged.AddDynamic(this, &ARepelTheUprisingCharacter::OnStaminaChange);
 	}
 
 	CreatePlayerWidgets();
+	
 }
 
 void ARepelTheUprisingCharacter::StartJump()
@@ -269,33 +320,8 @@ void ARepelTheUprisingCharacter::EndJump()
 	ACharacter::StopJumping();
 }
 
-void ARepelTheUprisingCharacter::StartRunning()
-{
-	if (!HasAuthority())
-	{
-		Server_OnStartRunning();
-	}
-	
-	bIsRunning = true;
-	GetCharacterMovement()->MaxWalkSpeed = MaxRunSpeed;
-	UE_LOG(LogTemp, Warning, TEXT("%s is now moving at %s"), *GetName(), *FString::SanitizeFloat(GetCharacterMovement()->GetMaxSpeed()))
-}
-
-void ARepelTheUprisingCharacter::EndRunning()
-{
-	if (!HasAuthority())
-	{
-		Server_OnEndRunning();
-	}
-	
-	bIsRunning = false;
-	GetCharacterMovement()->MaxWalkSpeed = DefaultWalkSpeed;
-	UE_LOG(LogTemp, Warning, TEXT("%s is now moving at %s"), *GetName(), *FString::SanitizeFloat(GetCharacterMovement()->GetMaxSpeed()))
-}
-
 bool ARepelTheUprisingCharacter::IsInteracting() const
 {
-	
 	return GetWorldTimerManager().IsTimerActive(TimerHandle_Interact);
 }
 
@@ -373,13 +399,6 @@ void ARepelTheUprisingCharacter::SetDefaultVariables()
 	MaxRunSpeed = GetMovementComponent()->GetMaxSpeed() * MaxSpeedMultiplier;
 
 	UE_LOG(LogTemp, Warning, TEXT("%s has default speed of %s and max speed of %s"), *GetName(), *FString::SanitizeFloat(DefaultWalkSpeed), *FString::SanitizeFloat(MaxRunSpeed));
-}
-
-void ARepelTheUprisingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ARepelTheUprisingCharacter, bIsRunning);
 }
 
 void ARepelTheUprisingCharacter::DoInteractionCheck()
@@ -505,57 +524,21 @@ void ARepelTheUprisingCharacter::EndInteract()
 
 void ARepelTheUprisingCharacter::CreatePlayerWidgets()
 {
-	if (MainWidget)
-	{
-		MainWidgetRef = CreateWidget<UPlayerInGameWidget>(GetWorld(), MainWidget);
-		MainWidgetRef->AddToViewport();
-		MainWidgetRef->SetPlayerCharacterRef(this);
+/*	if (MainWidget)
+	{	
+		if (APlayerController* PC = Cast<APlayerController>(GetController()))
+		{
+			MainWidgetRef = CreateWidget<UPlayerInGameWidget>(PC, MainWidget);
+			MainWidgetRef->SetPlayerCharacterRef(this);
+			MainWidgetRef->AddToViewport();
+		}
 	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Main Widget Ref is not set in Player Character"));
-	}
+	*/
 }
 
 void ARepelTheUprisingCharacter::Server_SetMovementVariables_Implementation()
 {
 	SetDefaultVariables();
-}
-
-/*
-void ARepelTheUprisingCharacter::OnHealthIsChanged(UHealthComponent* HealthComponent, double NewHealth, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
-{
-}
-*/
-void ARepelTheUprisingCharacter::Server_OnEndRunning_Implementation()
-{
-	EndRunning();
-}
-
-bool ARepelTheUprisingCharacter::Server_OnEndRunning_Validate()
-{
-	if (StaminaComponent)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-
-void ARepelTheUprisingCharacter::Server_OnStartRunning_Implementation()
-{
-	StartRunning();
-}
-
-bool ARepelTheUprisingCharacter::Server_OnStartRunning_Validate()
-{
-	if (StaminaComponent)
-	{
-		return true;
-	}
-
-	return false;
 }
 
 void ARepelTheUprisingCharacter::ServerEndInteract_Implementation()
@@ -624,3 +607,18 @@ void ARepelTheUprisingCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
 }
+
+void ARepelTheUprisingCharacter::OnHealthIsChanged(UHealthComponent* OwningHealthComp, float Health, float HealthDelta,
+	const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
+{
+	
+}
+
+
+void ARepelTheUprisingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ARepelTheUprisingCharacter, bIsRunning);
+}
+

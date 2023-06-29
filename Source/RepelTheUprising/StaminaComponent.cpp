@@ -4,60 +4,79 @@
 #include "StaminaComponent.h"
 #include "Net/UnrealNetwork.h"
 
-// Sets default values for this component's properties
 UStaminaComponent::UStaminaComponent()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 
-	// Stamina should be replicated across the game
-	SetIsReplicatedByDefault(true);
-		
 	MaxStamina = 100.0f;
 	CurrentStamina = MaxStamina;
+	StaminaDrainRate = 5.0f;
 	StaminaRegenerationRate = 10.0f;
-	TimeBeforeRegeneration = 2.0f;
-	TimeSinceStaminaUsed = 0.f;
+
+	SetIsReplicatedByDefault(true);
 }
 
-
-// Called when the game starts
 void UStaminaComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	
+
+	const float StaminaAsPercentage = 1.0f - ((MaxStamina - CurrentStamina) / MaxStamina);
+	OnStaminaChanged.Broadcast(1.0f);
 }
 
-// Called every frame
 void UStaminaComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// Check if stamina can regenerate
-	if (TimeSinceStaminaUsed += DeltaTime > TimeBeforeRegeneration && CurrentStamina < MaxStamina)
+	if (GetOwner() && GetOwner()->HasAuthority())
 	{
-		// Only run on the server
-		if (GetOwner() && GetOwner()->HasAuthority())
+		// Make sure the stamina has actually been changed
+		const float StaminaBeforeCheck = CurrentStamina;
+		if (bStaminaIsDraining)
 		{
-			CurrentStamina = FMath::Clamp(CurrentStamina + StaminaRegenerationRate * DeltaTime, 0.0f, MaxStamina);
+			DrainStamina(DeltaTime);
+		}
+		else
+		{
+			RegenerateStamina(DeltaTime);
+		}
+		
+		if (CurrentStamina != StaminaBeforeCheck)
+		{
+			const float StaminaAsPercentage = 1.0f - ((MaxStamina - CurrentStamina) / MaxStamina);
+			OnStaminaChanged.Broadcast(StaminaAsPercentage);
 		}
 	}
 }
 
-void UStaminaComponent::ModifyStamina(float Value)
+void UStaminaComponent::SetStaminaShouldDrain(bool bNewStateIn)
 {
-	if (GetOwner() && GetOwner()->HasAuthority())
-	{
-		CurrentStamina = FMath::Clamp(CurrentStamina + Value, 0.0f, MaxStamina);
-	}
+	bStaminaIsDraining = bNewStateIn;
+}
+
+void UStaminaComponent::DrainStamina(float DeltaTime)
+{
+	const float DrainThisDelta = StaminaDrainRate * DeltaTime;
+	CurrentStamina = FMath::Clamp(CurrentStamina - DrainThisDelta, 0.0f, MaxStamina);
 }
 
 void UStaminaComponent::OnRep_CurrentStamina()
 {
 	// Handle stamina replication updates on clients if needed
-	OnStaminaChanged.Broadcast(this, CurrentStamina);
+	
+	// Stamina needs to be set as a percentage for the HUD
+	const float StaminaAsPercentage = 1.0f - ((MaxStamina - CurrentStamina) / MaxStamina);
+	OnStaminaChanged.Broadcast(StaminaAsPercentage);
+}
+
+void UStaminaComponent::RegenerateStamina(float DeltaTime)
+{
+	if (CurrentStamina >= MaxStamina)
+	{
+		return;
+	}
+
+	CurrentStamina = FMath::Clamp(CurrentStamina + StaminaRegenerationRate * DeltaTime, 0.0f, MaxStamina);
 }
 
 void UStaminaComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

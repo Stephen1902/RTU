@@ -16,9 +16,9 @@ class REPELTHEUPRISING_API UPlayerInGameWidget : public UUserWidget
 	
 public:
 	void SetPlayerCharacterRef(class ARepelTheUprisingCharacter* PlayerRefIn);
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player")	
 	TObjectPtr<ARepelTheUprisingCharacter> PlayerCharacterRef;
-		
-	
+
 };

@@ -6,7 +6,9 @@
 #include "Components/ActorComponent.h"
 #include "HealthComponent.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FOnHealthChanged, UHealthComponent*, HealthComponent, double, NewHealth, const class UDamageType*, DamageType, class AController*, InstigatedBy, AActor*, DamageCauser);
+// On health changed event
+UDELEGATE(BlueprintAuthorityOnly)
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_SixParams( FOnHealthChanged, class UHealthComponent*, HealthComp, float, Health, float, HealthDelta, const class UDamageType*, DamageType, class AController*, InstigatedBy, AActor*, DamageCauser );
 
 UCLASS( ClassGroup=(Components), meta=(BlueprintSpawnableComponent) )
 class REPELTHEUPRISING_API UHealthComponent : public UActorComponent
