@@ -66,6 +66,12 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
 	class UStaminaComponent* StaminaComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	class UFoodComponent* FoodComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	class UWaterComponent* WaterComponent;
 	
 	// Montage to be used when the player is hanging from a ledge
 	UPROPERTY(EditDefaultsOnly, Category="Climbing", meta=(AllowPrivateAccess="true"))

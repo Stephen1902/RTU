@@ -14,6 +14,8 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "RepelTheUprising/HealthComponent.h"
 #include "RepelTheUprising/StaminaComponent.h"
+#include "RepelTheUprising/FoodComponent.h"
+#include "RepelTheUprising/WaterComponent.h"
 #include "RepelTheUprising/Interactive/InteractionComponent.h"
 #include "Net/UnrealNetwork.h"
 
@@ -81,6 +83,8 @@ ARepelTheUprisingCharacter::ARepelTheUprisingCharacter()
 
 	HealthComponent = CreateDefaultSubobject<UHealthComponent>(TEXT("Health Component"));
 	StaminaComponent = CreateDefaultSubobject<UStaminaComponent>(TEXT("Stamina Component"));
+	FoodComponent = CreateDefaultSubobject<UFoodComponent>(TEXT("Food Component"));
+	WaterComponent = CreateDefaultSubobject<UWaterComponent>(TEXT("Water Component"));
 	
 	//////////////////////////////////////////////////////////////////////////
 	// Input
@@ -163,7 +167,7 @@ void ARepelTheUprisingCharacter::DoForwardSphereTrace()
 {
 	FHitResult HitResult;
 	const FVector TraceStart = GetActorLocation();
-	const FVector TraceEnd = (GetActorForwardVector() * 150.f) + TraceStart;
+	const FVector TraceEnd = (GetActorForwardVector() * 150.0) + TraceStart;
 	TArray<AActor*> IgnoreTheseActors;
 	IgnoreTheseActors.Add(this);
 	
@@ -178,7 +182,7 @@ void ARepelTheUprisingCharacter::DoForwardSphereTrace()
 void ARepelTheUprisingCharacter::DoVerticalSphereTrace()
 {
 		FHitResult HitResult;
-		const FVector TraceEnd = (GetActorForwardVector() * 75.f) + GetActorLocation();
+		const FVector TraceEnd = (GetActorForwardVector() * 75.0) + GetActorLocation();
 		FVector TraceStart = TraceEnd;
 		TraceStart.Z += 500.f;
 
@@ -222,7 +226,7 @@ void ARepelTheUprisingCharacter::Hang()
 		LocationToMoveTo.Z = HeightLocation.Z - 86.f;
 		
 		// Adjust the rotation of the player to match the rotation of the ledge
-		const FRotator RotationToMoveTo = UKismetMathLibrary::MakeRotFromX(ForwardHitNormal * -1.f);
+		const FRotator RotationToMoveTo = UKismetMathLibrary::MakeRotFromX(ForwardHitNormal * -1.0);
 		
 		FLatentActionInfo ActionInfo = FLatentActionInfo();
 		ActionInfo.CallbackTarget = this;
@@ -359,7 +363,7 @@ void ARepelTheUprisingCharacter::OnAnimNotifyBegin(FName NotifyName, const FBran
 	bFinishedClimbing = false;
 
 	// Move the player forward so it doesn't look like they're hanging in mid-air
-	const FVector LocationToMoveTo = (GetCapsuleComponent()->GetComponentLocation() + (GetActorForwardVector() * 60.f));
+	const FVector LocationToMoveTo = (GetCapsuleComponent()->GetComponentLocation() + (GetActorForwardVector() * 60.0));
 	
 	// Get the current rotation of the player to match
 	const FRotator RotationToMoveTo = UKismetMathLibrary::MakeRotFromX(GetActorForwardVector());
