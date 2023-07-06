@@ -12,12 +12,15 @@
 UENUM(BlueprintType)
 enum class EItemType : uint8
 {
-	EIT_Misc	UMETA(DisplayName="Misc"),
-	EIT_Food	UMETA(DisplayName="Food"),
-	EIT_Weapon	UMETA(DisplayName="Weapon"),
-	EIT_Ammo	UMETA(DisplayName="Ammo"),
-	EIT_Health	UMETA(DisplayName="Health")
-	
+	EIT_Misc		UMETA(DisplayName="Misc"),
+	EIT_Food		UMETA(DisplayName="Food"),
+	EIT_Weapon		UMETA(DisplayName="Weapon"),
+	EIT_Ammo		UMETA(DisplayName="Ammo"),
+	EIT_Health		UMETA(DisplayName="Health"),
+	EIT_Book		UMETA(DisplayName="Book"),
+	EIT_Tool		UMETA(DisplayName="Tool"),
+	EIT_Building	UMETA(DisplayName="Building"),
+	EIT_Addition	UMETA(DisplayName="ObjectAddition")  // Items that are added to another item ie grill in a campfire
 };
 
 USTRUCT(BlueprintType)
@@ -41,7 +44,7 @@ struct FItemSpoils
 	{
 		bCanSpoil = false;
 		SpoilTime = 0.f;
-		ItemWhenSpoiled = TEXT("MISCSPOILED");
+		ItemWhenSpoiled = FName("MISC SPOILED");
 	}
 };
 
@@ -78,7 +81,13 @@ struct FItemCraftingInfo
 	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true", EditCondition="bIsCrafted"))
 	double CraftingTime;
 	
-	
+	FItemCraftingInfo()
+	{
+		bIsCrafted = false;
+		CraftedMadeMinimum = 1;
+		CraftedMadeMaximum = 1;
+		CraftingTime = 1.0;
+	}
 };
 
 UCLASS()
@@ -95,6 +104,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
 	FName ItemName;
 
+	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
+	EItemType ItemType;
+
 	// Description of this item, as displayed in the in game UI
 	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
 	FName ItemDescription;
@@ -107,6 +119,10 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
 	double ItemBaseCost;
 
+	// Display mesh for this item when placed in the world
+	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
+	TObjectPtr<UStaticMesh> DisplayMesh;
+	
 	// Crafted Items Information
 	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
 	FItemCraftingInfo ItemCraftingInfo;
@@ -115,9 +131,32 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
 	FItemSpoils ItemSpoilInfo;
 
+	// Weight for one of these items
+	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
+	double UnitWeight;
+
+	// Maximum amount this object will stack in an inventory
+	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
+	double MaxStackSize;
+
+	// Health this item has when created.  
+	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
+	double MaxHealth;
+	
+	// The quality level of this item
+	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(AllowPrivateAccess="true"))
+	int32 ItemLevel;
+
 	double TimeUntilSpoiled;
 	FTimerHandle SpoilTimerHandle;
 
 	double TimeUntilCrafted;
 	FTimerHandle CraftTimerHandle;
+
+	UPROPERTY(ReplicatedUsing=OnRep_CurrentHealth)
+	double CurrentHealth;
+
+	UFUNCTION()
+	void OnRep_CurrentHealth();
+	
 };
