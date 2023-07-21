@@ -165,6 +165,11 @@ void ARepelTheUprisingCharacter::Server_ModifySprintStatus_Implementation(bool b
 
 void ARepelTheUprisingCharacter::DoForwardSphereTrace()
 {
+	if (!HasAuthority())
+	{
+		Server_DoForwardSphereTrace();
+	}
+
 	FHitResult HitResult;
 	const FVector TraceStart = GetActorLocation();
 	const FVector TraceEnd = (GetActorForwardVector() * 150.0) + TraceStart;
@@ -176,39 +181,70 @@ void ARepelTheUprisingCharacter::DoForwardSphereTrace()
 		ForwardHitLocation = HitResult.Location;
 		ForwardHitNormal = HitResult.Normal;
 	}
-
 }
 
 void ARepelTheUprisingCharacter::DoVerticalSphereTrace()
 {
-		FHitResult HitResult;
-		const FVector TraceEnd = (GetActorForwardVector() * 75.0) + GetActorLocation();
-		FVector TraceStart = TraceEnd;
-		TraceStart.Z += 500.f;
+	if (!HasAuthority())
+	{
+		Server_DoVerticalSphereTrace();
+	}
+	
+	FHitResult HitResult;
+	const FVector TraceEnd = (GetActorForwardVector() * 75.0) + GetActorLocation();
+	FVector TraceStart = TraceEnd;
+	TraceStart.Z += 500.f;
 
-		TArray<AActor*> IgnoreTheseActors;
-		IgnoreTheseActors.Add(this);
-		if (UKismetSystemLibrary::SphereTraceSingle(GetWorld(), TraceStart, TraceEnd, 10.f, UEngineTypes::ConvertToTraceType(COLLISION_CanClimb), false, IgnoreTheseActors, EDrawDebugTrace::None, HitResult, true))
+	TArray<AActor*> IgnoreTheseActors;
+	IgnoreTheseActors.Add(this);
+	if (UKismetSystemLibrary::SphereTraceSingle(GetWorld(), TraceStart, TraceEnd, 10.f, UEngineTypes::ConvertToTraceType(COLLISION_CanClimb), false, IgnoreTheseActors, EDrawDebugTrace::None, HitResult, true))
+	{
+		HeightLocation = HitResult.Location;
+		// Get the location socket found on the player skeleton and find where it is in the vertical
+		const FVector ClimbingSocketLocation = GetMesh()->GetSocketLocation(FName("WallClimbingSocket"));
+		const float SocketLocationZ = ClimbingSocketLocation.Z;
+		// Get the trace hit location in the vertical
+		const float OutHitLocZ = HitResult.Location.Z;
+		// Only allow the player to hang if the distance is greater than their height plus climbing distance
+		if (UKismetMathLibrary::InRange_FloatFloat(SocketLocationZ - OutHitLocZ, MaximumWallClimbDistance, 0.f))
 		{
-			HeightLocation = HitResult.Location;
-			// Get the location socket found on the player skeleton and find where it is in the vertical
-			const FVector ClimbingSocketLocation = GetMesh()->GetSocketLocation(FName("WallClimbingSocket"));
-			const float SocketLocationZ = ClimbingSocketLocation.Z;
-			// Get the trace hit location in the vertical
-			const float OutHitLocZ = HitResult.Location.Z;
-			// Only allow the player to hang if the distance is greater than their height plus climbing distance
-			if (UKismetMathLibrary::InRange_FloatFloat(SocketLocationZ - OutHitLocZ, MaximumWallClimbDistance, 0.f))
-			{
-				// Set movement mode to flying to prevent character falling back down
-				GetCharacterMovement()->SetMovementMode(MOVE_Flying);
-				GetCharacterMovement()->StopMovementImmediately();
-				Hang();
-			}
+			// Set movement mode to flying to prevent character falling back down
+			GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+			GetCharacterMovement()->StopMovementImmediately();
+			// Set is climbing to true player cannot turn or move, just look up and down
+			bIsClimbing = true;
+			Server_Hang();
 		}
-
+	}
 }
 
-void ARepelTheUprisingCharacter::Hang()
+void ARepelTheUprisingCharacter::ClimbUp()
+{
+	// This function is only called if the player can "hang" on a ledge and will need to be called on the server if a client
+	if (HasAuthority())
+	{
+		Multicast_ClimbUp(); 
+	}
+	else
+	{
+		Server_ClimbUp();
+	}
+}
+
+void ARepelTheUprisingCharacter::Multicast_ClimbUp_Implementation()
+{
+	if (bIsClimbing && !bFinishedClimbing)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("%s is inside the ClimbUp Implementation"), *GetName());
+		bFinishedClimbing = true;
+		// Play the montage, letting it run through
+		this->PlayAnimMontage(HangMontage, 1.f, NAME_None);
+		
+		// When this montage plays, OnAnimNotifyBegin is then called by the AnimInstance delegate 
+	}
+}
+
+void ARepelTheUprisingCharacter::Hang_Implementation()
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (HangMontage && AnimInstance)
@@ -216,11 +252,9 @@ void ARepelTheUprisingCharacter::Hang()
 		// Play the montage but pause it at the first frame to the player "hangs" in position
 		this->PlayAnimMontage(HangMontage, 0.0f, NAME_None);
 		AnimInstance->Montage_Pause(HangMontage);
-		// Set is climbing to true player cannot turn or move, just look up and down
-		bIsClimbing = true;
 		// Adjust the position of the player to match the location of the ledge
-		FVector LocationToMoveTo;
 		const FVector WallNormalAndLocation =  (ForwardHitNormal * (GetCapsuleComponent()->GetUnscaledCapsuleRadius() / 2)) + ForwardHitLocation;
+		FVector LocationToMoveTo;
 		LocationToMoveTo.X = WallNormalAndLocation.X;
 		LocationToMoveTo.Y = WallNormalAndLocation.Y;
 		LocationToMoveTo.Z = HeightLocation.Z - 86.f;
@@ -232,9 +266,10 @@ void ARepelTheUprisingCharacter::Hang()
 		ActionInfo.CallbackTarget = this;
 		UKismetSystemLibrary::MoveComponentTo(GetCapsuleComponent(), LocationToMoveTo, RotationToMoveTo, true, true, 0.2f, false, EMoveComponentAction::Move, ActionInfo);
 
+		// Tell the server to climb up the ledge
 		if (bShouldAutoClimb)
 		{
-			GetWorldTimerManager().SetTimer(WallClimbTimer, this, &ARepelTheUprisingCharacter::ClimbUp, TimeBeforeAutoClimb, false);
+			GetWorldTimerManager().SetTimer(WallClimbTimer, this, &ARepelTheUprisingCharacter::Server_ClimbUp, TimeBeforeAutoClimb, false);
 		}
 	}
 	else
@@ -245,15 +280,20 @@ void ARepelTheUprisingCharacter::Hang()
 
 void ARepelTheUprisingCharacter::ToggleCrouching()
 {
-	if (!bIsCrouching && !bIsClimbing)
+	// The player cannot crouch if they are climbing 
+	if (!bIsClimbing)
 	{
-		Crouch();
-		bIsCrouching = true;
-	}
-	else
-	{
-		UnCrouch();
-		bIsCrouching = false;
+		// Toggle the crouch action
+		if (!bIsCrouching)
+		{
+			Crouch();
+			bIsCrouching = true;
+		}
+		else
+		{
+			UnCrouch();
+			bIsCrouching = false;
+		}
 	}
 }
 
@@ -264,8 +304,8 @@ void ARepelTheUprisingCharacter::Tick(float DeltaSeconds)
 	// Only check if we can climb if not already climbing
 	if (ClimbCheckTime > 0.f && !bIsClimbing)
 	{
-		DoForwardSphereTrace();
-		DoVerticalSphereTrace();
+		Server_DoForwardSphereTrace();
+		Server_DoVerticalSphereTrace();
 
 		ClimbCheckTime -= DeltaSeconds;
 	}
@@ -344,24 +384,10 @@ bool ARepelTheUprisingCharacter::ServerBeginInteract_Validate()
 	return true;
 }
 
-void ARepelTheUprisingCharacter::ClimbUp()
-{
-	if (bIsClimbing && !bFinishedClimbing)
-	{
-		bFinishedClimbing = true;
-		// Play the montage, letting it run through
-		this->PlayAnimMontage(HangMontage, 1.0f, NAME_None);
-
-		// When this montage plays, OnAnimNotifyBegin is then called by the AnimInstance delegate 
-	}
-}
-
 void ARepelTheUprisingCharacter::OnAnimNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointNotifyPayload)
 {
-	bIsClimbing = false;
-	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-	bFinishedClimbing = false;
-
+	UE_LOG(LogTemp, Warning, TEXT("%s is in AnimNotify"), *GetName());
+	
 	// Move the player forward so it doesn't look like they're hanging in mid-air
 	const FVector LocationToMoveTo = (GetCapsuleComponent()->GetComponentLocation() + (GetActorForwardVector() * 60.0));
 	
@@ -371,6 +397,10 @@ void ARepelTheUprisingCharacter::OnAnimNotifyBegin(FName NotifyName, const FBran
 	FLatentActionInfo ActionInfo = FLatentActionInfo();
 	ActionInfo.CallbackTarget = this;
 	UKismetSystemLibrary::MoveComponentTo(GetCapsuleComponent(), LocationToMoveTo, RotationToMoveTo, true, true, 0.2f, false, EMoveComponentAction::Move, ActionInfo);
+
+	bIsClimbing = false;
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	bFinishedClimbing = false;
 }
 
 void ARepelTheUprisingCharacter::SetEnhancedSubsystem() const
@@ -401,8 +431,6 @@ void ARepelTheUprisingCharacter::SetDefaultVariables()
 	MaximumWallClimbDistance = (GetCapsuleComponent()->GetScaledCapsuleHalfHeight() / 2) * -1.f;
 	DefaultWalkSpeed = GetMovementComponent()->GetMaxSpeed();
 	MaxRunSpeed = GetMovementComponent()->GetMaxSpeed() * MaxSpeedMultiplier;
-
-	UE_LOG(LogTemp, Warning, TEXT("%s has default speed of %s and max speed of %s"), *GetName(), *FString::SanitizeFloat(DefaultWalkSpeed), *FString::SanitizeFloat(MaxRunSpeed));
 }
 
 void ARepelTheUprisingCharacter::DoInteractionCheck()
@@ -526,9 +554,30 @@ void ARepelTheUprisingCharacter::EndInteract()
 	}
 }
 
+
+void ARepelTheUprisingCharacter::Server_Hang_Implementation()
+{
+	Hang();
+}
+
+void ARepelTheUprisingCharacter::Server_DoForwardSphereTrace_Implementation()
+{
+	DoForwardSphereTrace();
+}
+
+void ARepelTheUprisingCharacter::Server_DoVerticalSphereTrace_Implementation()
+{
+	DoVerticalSphereTrace();
+}
+
+void ARepelTheUprisingCharacter::Server_ClimbUp_Implementation()
+{
+	ClimbUp();
+}
+
 void ARepelTheUprisingCharacter::CreatePlayerWidgets()
 {
-/*	if (MainWidget)
+	if (MainWidget)
 	{	
 		if (APlayerController* PC = Cast<APlayerController>(GetController()))
 		{
@@ -537,7 +586,6 @@ void ARepelTheUprisingCharacter::CreatePlayerWidgets()
 			MainWidgetRef->AddToViewport();
 		}
 	}
-	*/
 }
 
 void ARepelTheUprisingCharacter::Server_SetMovementVariables_Implementation()
@@ -624,5 +672,11 @@ void ARepelTheUprisingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProp
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ARepelTheUprisingCharacter, bIsRunning);
+	DOREPLIFETIME(ARepelTheUprisingCharacter, bIsClimbing);
+	DOREPLIFETIME(ARepelTheUprisingCharacter, ForwardHitNormal);
+	DOREPLIFETIME(ARepelTheUprisingCharacter, ForwardHitLocation);
+	DOREPLIFETIME(ARepelTheUprisingCharacter, HeightLocation);
+	DOREPLIFETIME(ARepelTheUprisingCharacter, bFinishedClimbing);
+	DOREPLIFETIME(ARepelTheUprisingCharacter, MaximumWallClimbDistance);
 }
 

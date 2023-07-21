@@ -78,7 +78,7 @@ private:
 	UAnimMontage* HangMontage;
 
 	// Difference between where the player is and where they can get to when against a climbable ledge
-	UPROPERTY(EditDefaultsOnly, Category="Climbing", meta=(AllowPrivateAccess="true"))
+	UPROPERTY(EditDefaultsOnly, Category="Climbing", meta=(AllowPrivateAccess="true"), Replicated)
 	float MaximumWallClimbDistance = -50.f;
 
 	// Amount of time to check if a player can hang and climb by default
@@ -194,10 +194,7 @@ protected:
 
 	/** Called on game start */
 	virtual void BeginPlay() override;
-
-	/** Called when the player climbs up a ledge */
-	void ClimbUp();
-
+	
 	/** Called when the player drops down from a ledge */
 	void DropDown();
 
@@ -229,12 +226,17 @@ private:
 
 	// Variables for jumping and grabbing a ledge
 	float ClimbCheckTime = 0.f;
+	UPROPERTY(Replicated)
 	bool bIsClimbing = false;
 	FTimerHandle WallClimbTimer;
 	// Check to ensure climb key cannot be spammed
+	UPROPERTY(Replicated)
 	bool bFinishedClimbing = false;
+	UPROPERTY(Replicated)
 	FVector HeightLocation;
+	UPROPERTY(Replicated)
 	FVector ForwardHitNormal;
+	UPROPERTY(Replicated)
 	FVector ForwardHitLocation;
 
 	// Do sphere trace forward to check for climbing options
@@ -243,7 +245,14 @@ private:
 	// Do sphere trace up to check for climbing options
 	void DoVerticalSphereTrace();
 
+	
+	/** Called when the player climbs up a ledge */
+	void ClimbUp();
+	UFUNCTION(NetMulticast, Reliable)	
+	void Multicast_ClimbUp();
+
 	// Called when a player can climb and presses the jump button
+	UFUNCTION(NetMulticast, Unreliable)
 	void Hang();
 
 	UFUNCTION()
@@ -279,9 +288,22 @@ private:
 	
 	UFUNCTION(Server, Reliable)
 	void Server_SetMovementVariables();
+
+	UFUNCTION(Server, Unreliable)
+	void Server_Hang();
+
+	UFUNCTION(Server, Unreliable)
+	void Server_DoForwardSphereTrace();
+
+	UFUNCTION(Server, Unreliable)
+	void Server_DoVerticalSphereTrace();
+
+	UFUNCTION(Server, Unreliable)
+	void Server_ClimbUp();
 	
 	// For on screen widgets
 	TObjectPtr<class UPlayerInGameWidget> MainWidgetRef;
 	void CreatePlayerWidgets();
+	
 };
 
