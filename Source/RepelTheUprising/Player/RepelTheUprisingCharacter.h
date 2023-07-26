@@ -134,9 +134,10 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 
+	/** Sprint Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* SprintAction;
-
+	
 	// Speed multiplier when player is running
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Running, meta = (AllowPrivateAccess = "true"))
 	double MaxSpeedMultiplier = 1.5;
@@ -204,7 +205,7 @@ protected:
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
 
-	/** Called when toggling */
+	/** Called when crouching */
 	void ToggleCrouching();
 
 	// APawn interface
@@ -304,6 +305,12 @@ private:
 	// For on screen widgets
 	TObjectPtr<class UPlayerInGameWidget> MainWidgetRef;
 	void CreatePlayerWidgets();
+
+	// Boolean for when an in game widget is on screen and the player shouldn't move
+	bool bIsInMenu;
+
+	UFUNCTION()
+	void GetIsInMenuStatus(const bool bNewMenuStatus);
 	
 };
 

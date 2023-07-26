@@ -190,10 +190,6 @@ protected:
 	UFUNCTION()
 	void OnRep_CurrentQty();
 
-	// Used to replicated items efficiently
-	UPROPERTY()
-	int32 RepKey;
-
 	// Broadcast when an item is changed, used for updating Use Text etc.
 	UPROPERTY(BlueprintAssignable)
 	FOnItemModified OnItemModified;
@@ -208,8 +204,14 @@ protected:
 	// Function to set a new quantity for an item
 	UFUNCTION(BlueprintCallable, Category = "Game Items")
 	void SetQuantity(const int32 NewQuantity);
-	
+
+private:
+	// Used to replicated items efficiently
+	UPROPERTY()
+	int32 RepKey;
 public:
+	int32 GetRepKey() const { return RepKey; }
+	
 	UFUNCTION(BlueprintCallable, Category = "Game Items")
 	float GetStackWeight() const { return ItemWeight * CurrentQuantity; }
 

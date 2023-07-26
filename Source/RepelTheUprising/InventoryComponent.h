@@ -20,9 +20,25 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	// The maximum weight this inventory can hold
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Inventory")
+	double WeightCapacity;
 
-		
+	// The maximum number of items this inventory can hold
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Inventory", meta=(ClampMin= 1 , ClampMax = 200))
+	double ItemCapacity;
+	
+	// The items being held in this component
+	UPROPERTY(ReplicatedUsing = OnRep_Items, VisibleAnywhere, Category = "Inventoty")
+	TArray<TObjectPtr<class UItemBase>> Items;
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const override;
+	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
+private:
+	UFUNCTION()
+	void OnRep_Items();
+
+	UPROPERTY()
+	int32 ReplicatedItemsKey;
+	
 };

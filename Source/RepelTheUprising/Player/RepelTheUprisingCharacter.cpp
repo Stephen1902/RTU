@@ -1,10 +1,10 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "RepelTheUprisingCharacter.h"
-
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "PlayerInGameWidget.h"
+#include "RepelTheUprisingPlayerController.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -280,19 +280,23 @@ void ARepelTheUprisingCharacter::Hang_Implementation()
 
 void ARepelTheUprisingCharacter::ToggleCrouching()
 {
-	// The player cannot crouch if they are climbing 
-	if (!bIsClimbing)
+	// Check to make sure we're not in an action blocking menu
+	if (!bIsInMenu)
 	{
-		// Toggle the crouch action
-		if (!bIsCrouching)
+		// The player cannot crouch if they are climbing 
+		if (!bIsClimbing)
 		{
-			Crouch();
-			bIsCrouching = true;
-		}
-		else
-		{
-			UnCrouch();
-			bIsCrouching = false;
+			// Toggle the crouch action
+			if (!bIsCrouching)
+			{
+				Crouch();
+				bIsCrouching = true;
+			}
+			else
+			{
+				UnCrouch();
+				bIsCrouching = false;
+			}
 		}
 	}
 }
@@ -301,24 +305,28 @@ void ARepelTheUprisingCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	// Only check if we can climb if not already climbing
-	if (ClimbCheckTime > 0.f && !bIsClimbing)
+	// Check to make sure we're not in an action blocking menu
+	if(!bIsInMenu)
 	{
-		Server_DoForwardSphereTrace();
-		Server_DoVerticalSphereTrace();
-
-		ClimbCheckTime -= DeltaSeconds;
-	}
-	else
-	{
-		// Check whether player needs to look for an interactable component
-		TimeSinceLastInteraction -= DeltaSeconds;
-		//  Check whether the time between interactions has passed, check for an interactive component if it has
-		if (TimeSinceLastInteraction <= 0.f )
+		// Only check if we can climb if not already climbing
+		if (ClimbCheckTime > 0.f && !bIsClimbing)
 		{
-			// Reset the time to check for a new interaction
-			TimeSinceLastInteraction = TimeBetweenInteractionChecks;
-			DoInteractionCheck();
+			Server_DoForwardSphereTrace();
+			Server_DoVerticalSphereTrace();
+
+			ClimbCheckTime -= DeltaSeconds;
+		}
+		else
+		{
+			// Check whether player needs to look for an interactable component
+			TimeSinceLastInteraction -= DeltaSeconds;
+			//  Check whether the time between interactions has passed, check for an interactive component if it has
+			if (TimeSinceLastInteraction <= 0.f )
+			{
+				// Reset the time to check for a new interaction
+				TimeSinceLastInteraction = TimeBetweenInteractionChecks;
+				DoInteractionCheck();
+			}
 		}
 	}
 }
@@ -341,22 +349,30 @@ void ARepelTheUprisingCharacter::BeginPlay()
 		StaminaComponent->OnStaminaChanged.AddDynamic(this, &ARepelTheUprisingCharacter::OnStaminaChange);
 	}
 
+	if (ARepelTheUprisingPlayerController* PC = Cast<ARepelTheUprisingPlayerController>(GetController()))
+	{
+		PC->OnInventoryStatusChanged.AddDynamic(this, &ARepelTheUprisingCharacter::GetIsInMenuStatus);
+	}
+
 	CreatePlayerWidgets();
-	
+	bIsInMenu = false;
 }
 
 void ARepelTheUprisingCharacter::StartJump()
 {
-	if (bIsRunning)
+	if (!bIsInMenu)
 	{
-		ClimbCheckTime = RunningClimbCheckTime;
-	}
-	else
-	{
-		ClimbCheckTime = DefaultClimbCheckTime;		
-	}
+		if (bIsRunning)
+		{
+			ClimbCheckTime = RunningClimbCheckTime;
+		}
+		else
+		{
+			ClimbCheckTime = DefaultClimbCheckTime;		
+		}
 	
-	ACharacter::Jump();
+		ACharacter::Jump();
+	}
 }
 
 void ARepelTheUprisingCharacter::EndJump()
@@ -554,7 +570,6 @@ void ARepelTheUprisingCharacter::EndInteract()
 	}
 }
 
-
 void ARepelTheUprisingCharacter::Server_Hang_Implementation()
 {
 	Hang();
@@ -586,6 +601,11 @@ void ARepelTheUprisingCharacter::CreatePlayerWidgets()
 			MainWidgetRef->AddToViewport();
 		}
 	}
+}
+
+void ARepelTheUprisingCharacter::GetIsInMenuStatus(const bool bNewMenuStatus)
+{
+	bIsInMenu = bNewMenuStatus;
 }
 
 void ARepelTheUprisingCharacter::Server_SetMovementVariables_Implementation()
@@ -626,37 +646,43 @@ void ARepelTheUprisingCharacter::DropDown()
 
 void ARepelTheUprisingCharacter::Move(const FInputActionValue& Value)
 {
-	// input is a Vector2D
-	FVector2D MovementVector = Value.Get<FVector2D>();
-
-	if (Controller != nullptr)
+	if (!bIsInMenu)
 	{
-		// find out which way is forward
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
+		// input is a Vector2D
+		FVector2D MovementVector = Value.Get<FVector2D>();
 
-		// get forward vector
-		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		if (Controller != nullptr)
+		{
+			// find out which way is forward
+			const FRotator Rotation = Controller->GetControlRotation();
+			const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+			// get forward vector
+			const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 	
-		// get right vector 
-		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+			// get right vector 
+			const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// add movement 
-		AddMovementInput(ForwardDirection, MovementVector.Y);
-		AddMovementInput(RightDirection, MovementVector.X);
+			// add movement 
+			AddMovementInput(ForwardDirection, MovementVector.Y);
+			AddMovementInput(RightDirection, MovementVector.X);
+		}
 	}
 }
 
 void ARepelTheUprisingCharacter::Look(const FInputActionValue& Value)
 {
-	// input is a Vector2D
-	FVector2D LookAxisVector = Value.Get<FVector2D>();
-
-	if (Controller != nullptr)
+	if (!bIsInMenu)
 	{
-		// add yaw and pitch input to controller.  There is a modifier in the editor but this doesn't work with the X Axis which needs reversing
-		AddControllerYawInput(LookAxisVector.X * -1.f);
-		AddControllerPitchInput(LookAxisVector.Y);
+		// input is a Vector2D
+		FVector2D LookAxisVector = Value.Get<FVector2D>();
+
+		if (Controller != nullptr)
+		{
+			// add yaw and pitch input to controller.  There is a modifier in the editor but this doesn't work with the X Axis which needs reversing
+			AddControllerYawInput(LookAxisVector.X * -1.f);
+			AddControllerPitchInput(LookAxisVector.Y);
+		}
 	}
 }
 
