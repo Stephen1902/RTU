@@ -12,6 +12,13 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnItemModified);
  */
 
 UENUM(BlueprintType)
+enum EDisplayInInventory : uint8
+{
+	DisplayYes,
+	DisplayNo
+};
+
+UENUM(BlueprintType)
 enum class EItemType : uint8
 {
 	EIT_Misc		UMETA(DisplayName="Misc"),
@@ -97,7 +104,7 @@ class REPELTHEUPRISING_API UItemBase : public UObject
 {
 	GENERATED_BODY()
 	
-protected:
+public:
 	// Functions for networking and replication
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> & OutLifetimeProps) const override;
 	virtual bool IsSupportedForNetworking() const override;
@@ -105,36 +112,36 @@ protected:
 	UItemBase();
 
 	// Item value of this item, must be unique for the DataTable
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	FName UniqueID;
 	
 	// Name of this item, as displayed in the world and in game UI
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	FText ItemName;
 
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	EItemType ItemType;
 
 	// Description of this item, as displayed in the in game UI
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	FText ItemDescription;
 
 	// Text to be displayed by the in game UI for how this item is used
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	FText ItemUseText;
 	
 	// Display texture for in game UI
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	TObjectPtr<UTexture2D> ItemTexture;
 
 	// Base cost of this item when buying or selling
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	double ItemBaseCost;
-/*
+
 	// Display mesh for this item when placed in the world
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	TObjectPtr<UStaticMesh> DisplayMesh;
-	
+/*	
 	// Crafted Items Information
 	UPROPERTY(EditAnywhere, Category = "Set Up")
 	FItemCraftingInfo ItemCraftingInfo;
@@ -144,23 +151,27 @@ protected:
 	FItemSpoils ItemSpoilInfo;
 */
 	// Weight for one of these items
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	double ItemWeight;
 
+	// Whether or not this item shows up in the invetory
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
+	bool bShouldShowInInventory;
+	
 	// Whether or not multiple units of this item can be stacked
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	bool bCanBeStacked;
 	
 	// Maximum amount this object will stack in an inventory
-	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(EditCondition = "bCanBeStacked", ClampMin = 2))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up", meta=(EditCondition = "bCanBeStacked", ClampMin = 2))
 	int32 MaxStackSize;
 
 	// Health this item has when created.  
-	UPROPERTY(EditAnywhere, Category = "Set Up")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	double MaxHealth;
 	
 	// The quality level of this item
-	UPROPERTY(EditAnywhere, Category = "Set Up", meta=(ClampMin = 0, ClampMax = 600));
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up", meta=(ClampMin = 0, ClampMax = 600));
 	int32 ItemLevel;
 
 	// The tooltip class to be displayed by this item
@@ -205,19 +216,30 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Game Items")
 	void SetQuantity(const int32 NewQuantity);
 
+	UFUNCTION(BlueprintCallable, Category = "Inventory", Meta = (ExpandEnumAsExecs = "Branches"))
+	void ShouldDisplayInInventory(TEnumAsByte<EDisplayInInventory>& Branches);
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory", Meta = (ExpandEnumAsExecs = "Branches"))
+	void IsQuantityGreaterThanZero(TEnumAsByte<EDisplayInInventory>& Branches);
+
 private:
 	// Used to replicated items efficiently
 	UPROPERTY()
 	int32 RepKey;
 public:
 	int32 GetRepKey() const { return RepKey; }
-	
+
+	// Get the current quantity of an item in the inventory
+	UFUNCTION(BlueprintCallable, Category = "Game Items")
+	FText GetQuantityAsText() const;
+
+	// Get the total weight of this item in the inventory
 	UFUNCTION(BlueprintCallable, Category = "Game Items")
 	float GetStackWeight() const { return ItemWeight * CurrentQuantity; }
-
+/*
 	UFUNCTION(BlueprintPure, Category = "Game Items")
 	virtual bool ShouldShowInInventory() const;
-
+*/
 private:
 	// Called whenever something is changed to tell the server to update replicated quantities
 	void MarkDirtyForReplication();

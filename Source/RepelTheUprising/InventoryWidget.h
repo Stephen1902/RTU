@@ -14,7 +14,4 @@ class REPELTHEUPRISING_API UInventoryWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
-protected:
-	UFUNCTION()
-	void InitializeInventory(class UInventoryComponent* InventoryIn);
 };

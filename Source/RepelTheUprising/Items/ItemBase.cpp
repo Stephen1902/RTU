@@ -34,6 +34,7 @@ UItemBase::UItemBase()
 	CurrentHealth = MaxHealth;
 	ItemLevel = 1;
 	CurrentQuantity = 1;
+	bShouldShowInInventory = true;
 
 	RepKey = 0;
 	
@@ -81,11 +82,42 @@ void UItemBase::SetQuantity(const int32 NewQuantity)
 	}
 }
 
-bool UItemBase::ShouldShowInInventory() const
+void UItemBase::ShouldDisplayInInventory(TEnumAsByte<EDisplayInInventory>& Branches)
 {
-	return true;
+	if (bShouldShowInInventory)
+	{
+		Branches = DisplayYes;
+	}
+	else
+	{
+		Branches = DisplayNo;
+	}
 }
 
+void UItemBase::IsQuantityGreaterThanZero(TEnumAsByte<EDisplayInInventory>& Branches)
+{
+	if (CurrentQuantity != 0)
+	{
+		Branches = DisplayYes;
+	}
+	else
+	{
+		Branches = DisplayNo;
+	}
+}
+
+FText UItemBase::GetQuantityAsText() const
+{
+	const FString QuantityAsString = FString::FromInt(CurrentQuantity);
+	return FText::FromString(QuantityAsString);
+}
+
+/*
+bool UItemBase::ShouldShowInInventory() const
+{
+	return bShouldShowInInventory;
+}
+*/
 void UItemBase::MarkDirtyForReplication()
 {
 }
