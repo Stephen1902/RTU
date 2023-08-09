@@ -141,6 +141,7 @@ public:
 	// Display mesh for this item when placed in the world
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
 	TObjectPtr<UStaticMesh> DisplayMesh;
+
 /*	
 	// Crafted Items Information
 	UPROPERTY(EditAnywhere, Category = "Set Up")
@@ -173,6 +174,14 @@ public:
 	// The quality level of this item
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up", meta=(ClampMin = 0, ClampMax = 600));
 	int32 ItemLevel;
+
+	// If the item uses a material that can have a custom colour etc. select it here
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up")
+	bool bHasCustomColour;
+
+	// Colour that is used on this item
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Set Up", meta=(EditCondition="bHasCustomColour"))
+	FLinearColor ColourToDisplay;
 
 	// The tooltip class to be displayed by this item
 	UPROPERTY(EditAnywhere, Category = "Set Up")
@@ -226,6 +235,9 @@ private:
 	// Used to replicated items efficiently
 	UPROPERTY()
 	int32 RepKey;
+
+	// Called whenever something is changed to tell the server to update replicated quantities
+	void MarkDirtyForReplication();
 public:
 	int32 GetRepKey() const { return RepKey; }
 
@@ -240,7 +252,5 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Game Items")
 	virtual bool ShouldShowInInventory() const;
 */
-private:
-	// Called whenever something is changed to tell the server to update replicated quantities
-	void MarkDirtyForReplication();
+
 };
