@@ -18,7 +18,7 @@ struct FThisItemInfo
 	UPROPERTY()
 	double MaxHealth;
 
-	// 	
+	// 	Current Health for this item
 	UPROPERTY()
 	double ItemCurrentHealth;
 };
