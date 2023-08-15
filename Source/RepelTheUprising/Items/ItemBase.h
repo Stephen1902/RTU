@@ -231,6 +231,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Inventory", Meta = (ExpandEnumAsExecs = "Branches"))
 	void IsQuantityGreaterThanZero(TEnumAsByte<EDisplayInInventory>& Branches);
 
+	UFUNCTION(BlueprintCallable, Category = "Inventory", Meta = (ExpandEnumAsExecs = "Branches"))
+	void IsItemStackable(TEnumAsByte<EDisplayInInventory>& Branches);
+
 private:
 	// Used to replicated items efficiently
 	UPROPERTY()

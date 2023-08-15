@@ -32,7 +32,7 @@ public:
 	// Sets default values for this actor's properties
 	APickUpItemBase();
 
-	void SetItemInfo(UStaticMesh* MeshIn, double MaxHealthIn, double CurrentHealthIn)
+	//void SetItemInfo(UStaticMesh* MeshIn, double MaxHealthIn, double CurrentHealthIn)
 	
 protected:
 	// Static mesh to display for this item

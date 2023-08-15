@@ -106,9 +106,30 @@ void UItemBase::IsQuantityGreaterThanZero(TEnumAsByte<EDisplayInInventory>& Bran
 	}
 }
 
+void UItemBase::IsItemStackable(TEnumAsByte<EDisplayInInventory>& Branches)
+{
+	if (bCanBeStacked)
+	{
+		Branches = DisplayYes;
+	}
+	else
+	{
+		Branches = DisplayNo;
+	}
+}
+
 FText UItemBase::GetQuantityAsText() const
 {
-	const FString QuantityAsString = FString::FromInt(CurrentQuantity);
+	FString QuantityAsString;
+	if (bCanBeStacked)
+	{
+		QuantityAsString = FString::FromInt(CurrentQuantity);
+	}
+	else
+	{
+		QuantityAsString = "";
+	}
+	
 	return FText::FromString(QuantityAsString);
 }
 

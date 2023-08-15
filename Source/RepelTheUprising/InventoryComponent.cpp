@@ -17,6 +17,18 @@ UInventoryComponent::UInventoryComponent()
 }
 
 
+FItemAddResult UInventoryComponent::TryToAddItem(UItemBase* ItemToAdd)
+{
+	return TryAddItem_Internal(ItemToAdd);
+}
+
+FItemAddResult UInventoryComponent::TryToAddNewItem(TSubclassOf<UItemBase> ItemClass, const int32 Quantity)
+{
+	UItemBase* NewItem = NewObject<UItemBase>(GetOwner(), ItemClass);
+	NewItem->SetQuantity(Quantity);
+	return TryAddItem_Internal(NewItem);
+}
+
 // Called when the game starts
 void UInventoryComponent::BeginPlay()
 {
@@ -55,4 +67,16 @@ void UInventoryComponent::OnRep_Items()
 {
 	// Replicate the items to the clients, if required
 	
+}
+
+FItemAddResult UInventoryComponent::TryAddItem_Internal(UItemBase* Item)
+{
+	Items.Add(Item);
+	return FItemAddResult::AddedAll(Item->CurrentQuantity);
+}
+
+UItemBase* UInventoryComponent::AddItem(UItemBase* ItemToAdd)
+{
+	// TODO amend as needed
+	return ItemToAdd;
 }
