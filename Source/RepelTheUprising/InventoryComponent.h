@@ -6,6 +6,9 @@
 #include "Components/ActorComponent.h"
 #include "InventoryComponent.generated.h"
 
+// Called when the inventory component is updated
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnInventoryUpdated);
+
 UENUM(BlueprintType)
 enum class EItemAddResult : uint8
 {
@@ -86,17 +89,53 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 	TArray<UItemBase*> GetInventoryItems() const { return Items; }
 
-	// Try to add an item to the inventory, if it already exists
-	UFUNCTION(Blueprintable, Category = "Inventory")
+	UPROPERTY(BlueprintAssignable, Category = "Inventory")
+	FOnInventoryUpdated OnInventoryUpdated;
+
+	UFUNCTION(Client, Reliable)
+	void ClientRefreshInventory();
+
+	// Try to add an item to the inventory, if it already exists, only calls an internal function but used to not allow external access to that function
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	FItemAddResult TryToAddItem(UItemBase* ItemToAdd);
 
 	// Add an item to the inventory if it doesn't already exist
-	UFUNCTION(Blueprintable, Category = "Inventory")
-	FItemAddResult TryToAddNewItem(TSubclassOf<UItemBase> ItemClass, const int32 Quantity);
-protected:
-	// Called when the game starts
-	virtual void BeginPlay() override;
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	FItemAddResult TryToAddItemFromClass(TSubclassOf<UItemBase> ItemClass, const int32 Quantity);
 
+	// Remove an item from the inventory
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	bool RemoveItem(UItemBase* ItemToRemove);
+
+	// CHeck if we have a given amount of an item
+	UFUNCTION(BlueprintPure, Category = "Inventory")
+	bool HasItem(TSubclassOf<UItemBase> ItemClass, const int32 Quantity = 1);
+
+	// Return the first item with the same class of a given item
+	UFUNCTION(BlueprintPure, Category = "Inventory")
+	UItemBase* FindItem(UItemBase* ItemIn) const;
+
+	// Return the first item with the same class as the class given
+	UFUNCTION(BlueprintPure, Category = "Inventory")
+	UItemBase* FindItemByClass(TSubclassOf<UItemBase> ItemClass) const;
+
+	// Get all items of a specific child of a class ie all weapons, all food etc.
+	UFUNCTION(BlueprintPure, Category = "Inventory")
+	TArray<UItemBase*> FindItemsByClass(TSubclassOf<UItemBase> ItemClass) const;
+
+	UFUNCTION(BlueprintPure, Category = "Inventory")
+	double GetCurrentWeight() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	void SetWeightCapacity(const double NewWeightCapacity);
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	void SetCapacity(const int32 NewCapacity);
+
+	// Take something away from this item and remove it, useful for things like eating, using ammo etc.
+	int32 ConsumeItem(UItemBase* ItemIn);
+	int32 ConsumeItem(UItemBase* ItemIn, const int32 QuantityIn);
+protected:
 	// The maximum weight this inventory can hold
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Inventory")
 	double WeightCapacity;
@@ -119,7 +158,7 @@ private:
 	int32 ReplicatedItemsKey;
 
 	// Internal function for adding items to the inventory
-	FItemAddResult TryAddItem_Internal(UItemBase* Item);
+	FItemAddResult TryAddItem_Internal(UItemBase* ItemIn);
 
 	// Function to actually add the item to the inventory
 	UItemBase* AddItem(class UItemBase* ItemToAdd);

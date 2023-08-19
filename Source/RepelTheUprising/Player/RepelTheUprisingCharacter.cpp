@@ -16,6 +16,7 @@
 #include "RepelTheUprising/StaminaComponent.h"
 #include "RepelTheUprising/FoodComponent.h"
 #include "RepelTheUprising/WaterComponent.h"
+#include "RepelTheUprising/InventoryComponent.h"
 #include "RepelTheUprising/Interactive/InteractionComponent.h"
 #include "Net/UnrealNetwork.h"
 
@@ -85,6 +86,10 @@ ARepelTheUprisingCharacter::ARepelTheUprisingCharacter()
 	StaminaComponent = CreateDefaultSubobject<UStaminaComponent>(TEXT("Stamina Component"));
 	FoodComponent = CreateDefaultSubobject<UFoodComponent>(TEXT("Food Component"));
 	WaterComponent = CreateDefaultSubobject<UWaterComponent>(TEXT("Water Component"));
+	
+	InventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory Component"));
+	InventoryComponent->SetCapacity(100);
+	InventoryComponent->SetWeightCapacity(200.);
 	
 	//////////////////////////////////////////////////////////////////////////
 	// Input

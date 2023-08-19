@@ -239,12 +239,14 @@ private:
 	UPROPERTY()
 	int32 RepKey;
 
-	// Called whenever something is changed to tell the server to update replicated quantities
-	void MarkDirtyForReplication();
 public:
 	int32 GetRepKey() const { return RepKey; }
 
-	// Get the current quantity of an item in the inventory
+	// Get the current quantity of an item in the inventory as an integer, for in game functions
+	UFUNCTION(BlueprintCallable, Category = "Game Items")
+	int32 GetQuantityAsInt() const { return CurrentQuantity; }
+	
+	// Get the current quantity of an item in the inventory as text to update the UI
 	UFUNCTION(BlueprintCallable, Category = "Game Items")
 	FText GetQuantityAsText() const;
 
@@ -255,5 +257,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Game Items")
 	virtual bool ShouldShowInInventory() const;
 */
-
+	// Called whenever something is changed to tell the server to update replicated quantities
+	void MarkDirtyForReplication();
 };

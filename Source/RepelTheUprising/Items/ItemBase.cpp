@@ -3,6 +3,7 @@
 
 #include "ItemBase.h"
 #include "Net/UnrealNetwork.h"
+#include "RepelTheUprising/InventoryComponent.h"
 
 #define LOCTEXT_NAMESPACE "Item"
 
@@ -141,6 +142,14 @@ bool UItemBase::ShouldShowInInventory() const
 */
 void UItemBase::MarkDirtyForReplication()
 {
+	// Mark this object for replication
+	++RepKey;
+
+	// Mark the owning inventory for replication, if it exists
+	if (OwningInventory)
+	{
+		++OwningInventory->ReplicatedItemsKey;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

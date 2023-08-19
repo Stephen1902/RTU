@@ -61,17 +61,20 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
 	USkeletalMeshComponent* BackpackMesh;
 
-	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
 	class UHealthComponent* HealthComponent;
 
-	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
 	class UStaminaComponent* StaminaComponent;
 
-	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
 	class UFoodComponent* FoodComponent;
 
-	UPROPERTY(EditDefaultsOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
 	class UWaterComponent* WaterComponent;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up", meta=(AllowPrivateAccess="true"))
+	class UInventoryComponent* InventoryComponent;
 	
 	// Montage to be used when the player is hanging from a ledge
 	UPROPERTY(EditDefaultsOnly, Category="Climbing", meta=(AllowPrivateAccess="true"))
