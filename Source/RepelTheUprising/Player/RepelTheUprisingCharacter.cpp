@@ -121,6 +121,10 @@ void ARepelTheUprisingCharacter::SetupPlayerInputComponent(class UInputComponent
 		// Sprinting
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ARepelTheUprisingCharacter::BeginSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ARepelTheUprisingCharacter::EndSprint);
+
+		// Interacting
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ARepelTheUprisingCharacter::BeginInteract);
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Completed, this, &ARepelTheUprisingCharacter::EndInteract);
 	}
 }
 
@@ -158,7 +162,6 @@ void ARepelTheUprisingCharacter::OnStaminaChange(float CurrentStaminaIn)
 	// If this character has run out of stamina, stop them being able to do the things stamina requires
 	if (FMath::IsNearlyZero(CurrentStaminaIn))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("%s has run out of stamina"), *GetName());
 		ModifySprintStatus(false);
 	}
 }
@@ -240,7 +243,6 @@ void ARepelTheUprisingCharacter::Multicast_ClimbUp_Implementation()
 {
 	if (bIsClimbing && !bFinishedClimbing)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("%s is inside the ClimbUp Implementation"), *GetName());
 		bFinishedClimbing = true;
 		// Play the montage, letting it run through
 		this->PlayAnimMontage(HangMontage, 1.f, NAME_None);
@@ -326,7 +328,7 @@ void ARepelTheUprisingCharacter::Tick(float DeltaSeconds)
 			// Check whether player needs to look for an interactable component
 			TimeSinceLastInteraction -= DeltaSeconds;
 			//  Check whether the time between interactions has passed, check for an interactive component if it has
-			if (TimeSinceLastInteraction <= 0.f )
+			if (TimeSinceLastInteraction <= 0.f)
 			{
 				// Reset the time to check for a new interaction
 				TimeSinceLastInteraction = TimeBetweenInteractionChecks;
@@ -407,8 +409,6 @@ bool ARepelTheUprisingCharacter::ServerBeginInteract_Validate()
 
 void ARepelTheUprisingCharacter::OnAnimNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointNotifyPayload)
 {
-	UE_LOG(LogTemp, Warning, TEXT("%s is in AnimNotify"), *GetName());
-	
 	// Move the player forward so it doesn't look like they're hanging in mid-air
 	const FVector LocationToMoveTo = (GetCapsuleComponent()->GetComponentLocation() + (GetActorForwardVector() * 60.0));
 	
@@ -456,9 +456,20 @@ void ARepelTheUprisingCharacter::SetDefaultVariables()
 
 void ARepelTheUprisingCharacter::DoInteractionCheck()
 {
+	// This only works with a valid controller.  Make sure there is one.
+	if (!GetController()) { return; }
+
+	// Reset the timer for interaction checks so these aren't performed every tick
+	TimeSinceLastInteraction = TimeBetweenInteractionChecks;
+	
+	FVector EyesLoc;
+	FRotator EyesRot;
+
+	GetController()->GetPlayerViewPoint(EyesLoc, EyesRot);
+
 	// Get the location and rotation of where the player is looking
-	const FVector TraceStart = CameraComp->GetComponentLocation();
-	const FVector TraceEnd = (CameraComp->GetForwardVector() * LineTraceDistance) + TraceStart;
+	const FVector TraceStart = EyesLoc;
+	const FVector TraceEnd = (EyesRot.Vector() * LineTraceDistance) + TraceStart;
 	FHitResult HitResult;
 
 	FCollisionQueryParams QueryParams;
@@ -476,44 +487,53 @@ void ARepelTheUprisingCharacter::DoInteractionCheck()
 				// Check to make sure that the distance the player is away from the interaction component is within where the IC can be interacted with
 				if (InteractionComponent != GetInteractionComp() && Distance <= InteractionComponent->InteractionDistance)
 				{
-					FoundNewInteractionComp(InteractionComponent);
+					BeginPlayerFocus(InteractionComponent);
+					UE_LOG(LogTemp, Warning, TEXT("%s says second if true"), *GetName());
 				}
 				else if (Distance > InteractionComponent->InteractionDistance && GetInteractionComp())
 				{
-					CouldntFindInteractionComp();
+					UE_LOG(LogTemp, Warning, TEXT("Second if false"))
+					EndPlayerFocus();
 				}
 				return;
 			}
 		}
 	}
-	// If not interaction component is found, clear the old one out
-	CouldntFindInteractionComp();
+	// If no interaction component is found, clear the old one out
+	EndPlayerFocus();
 }
 
-void ARepelTheUprisingCharacter::CouldntFindInteractionComp()
+void ARepelTheUprisingCharacter::EndPlayerFocus()
 {
-	// Player has lost focus on an interaction component. Clear the timer.
-	if (GetWorldTimerManager().IsTimerActive(TimerHandle_Interact))
-	{
-		GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
-	}
-	
-	//Tell the interaction component we've stopped focusing on it, and clear it.
+	// We only need to clear the Interaction component if we already have one
 	if (UInteractionComponent* InteractionComp = GetInteractionComp())
 	{
+		// Player has lost focus on an interaction component. Clear the timer.
+		if (GetWorldTimerManager().IsTimerActive(TimerHandle_Interact))
+		{
+			GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
+		}
+	
+		//Tell the interaction component we've stopped focusing on it, and clear it.
 		InteractionComp->EndFocus(this);
 
 		if (InteractionData.bIsInteractHeld)
 		{
 			EndInteract();
 		}
-	}
 
-	InteractionData.ViewedInteractionComponent = nullptr;
+		InteractionData.ViewedInteractionComponent = nullptr;
+		UE_LOG(LogTemp, Warning, TEXT("ViewedInteractionComponent set to nullptr by CouldntFindInteractionComp"));
+	}
 }
 
-void ARepelTheUprisingCharacter::FoundNewInteractionComp(TObjectPtr<UInteractionComponent> InteractionCompIn)
+void ARepelTheUprisingCharacter::BeginPlayerFocus(TObjectPtr<UInteractionComponent> InteractionCompIn)
 {
+	if (!HasAuthority())
+	{
+		Server_FoundNewInteractionComp(InteractionCompIn);
+	}
+	
 	// Clear the old interaction component, if there is one
 	EndInteract();
 
@@ -523,38 +543,39 @@ void ARepelTheUprisingCharacter::FoundNewInteractionComp(TObjectPtr<UInteraction
 	}
 
 	InteractionData.ViewedInteractionComponent = InteractionCompIn;
+	UE_LOG(LogTemp, Warning, TEXT("ViewedInteractionComponent set to %s in FoundNewInteractionComp"), *InteractionData.ViewedInteractionComponent.GetName());
 	InteractionCompIn->BeginFocus(this);
 }
 
 void ARepelTheUprisingCharacter::BeginInteract()
 {
+	// The server only needs to know what the player is looking at when they try interacting with it
 	if (!HasAuthority())
 	{
 		ServerBeginInteract();
 	}
-
-	/**As an optimization, the server only checks that we're looking at an item once we begin interacting with it.
-	This saves the server doing a check every tick for an InteractionComp Item. The exception is a non-instant interact.
-	In this case, the server will check every tick for the duration of the interact*/
-	if (HasAuthority())
+	else
 	{
 		DoInteractionCheck();
 	}
-
+	
 	InteractionData.bIsInteractHeld = true;
 
 	if (UInteractionComponent* InteractionComp = GetInteractionComp())
 	{
-		InteractionComp->BeginInteract(this);
-
 		if (FMath::IsNearlyZero(InteractionComp->InteractionTime))
 		{
 			Interact();
 		}
 		else
 		{
+			InteractionComp->BeginInteract(this);
 			GetWorldTimerManager().SetTimer(TimerHandle_Interact, this, &ARepelTheUprisingCharacter::Interact, InteractionComp->InteractionTime, false);
 		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("%s failed to get an interaction component"), *GetName());
 	}
 }
 
@@ -595,6 +616,11 @@ void ARepelTheUprisingCharacter::Server_ClimbUp_Implementation()
 	ClimbUp();
 }
 
+void ARepelTheUprisingCharacter::Server_FoundNewInteractionComp_Implementation(UInteractionComponent* InteractionCompIn)
+{
+	BeginPlayerFocus(InteractionCompIn);
+}
+
 void ARepelTheUprisingCharacter::CreatePlayerWidgets()
 {
 	if (MainWidget)
@@ -630,6 +656,7 @@ bool ARepelTheUprisingCharacter::ServerEndInteract_Validate()
 
 void ARepelTheUprisingCharacter::Interact()
 {
+	UE_LOG(LogTemp, Warning, TEXT("%s has called interact it %s have authority."), *GetName(), HasAuthority() ? TEXT("does") : TEXT("does not"));
 	GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
 
 	if (UInteractionComponent* InteractionComp = GetInteractionComp())

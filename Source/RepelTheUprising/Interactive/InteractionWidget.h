@@ -23,6 +23,6 @@ public:
 	void OnUpdateInteractionWidget();
 
 	UPROPERTY(BlueprintReadOnly, Category = "Interaction", meta = (ExposeOnSpawn))
-	class UInteractionComponent* OwningInteractionComponent;
+	TObjectPtr<UInteractionComponent> OwningInteractionComponent;
 	
 };

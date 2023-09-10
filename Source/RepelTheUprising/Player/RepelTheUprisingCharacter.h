@@ -140,6 +140,10 @@ private:
 	/** Sprint Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* SprintAction;
+
+	/** Interact Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* InteractAction;
 	
 	// Speed multiplier when player is running
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Running, meta = (AllowPrivateAccess = "true"))
@@ -147,7 +151,7 @@ private:
 
 	// Times between interaction checks, set to 0 if checking every frame
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	double TimeBetweenInteractionChecks = 0.0;
+	double TimeBetweenInteractionChecks = 0.2;
 
 	// Distance in front of the player to check for interactive items
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -191,6 +195,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnStaminaUpdated OnStaminaUpdated;
+
+	UFUNCTION()
+	UInventoryComponent* GetPlayerInventory() const {  return InventoryComponent; }
 
 protected:
 	/** Called every frame */
@@ -282,8 +289,8 @@ private:
 	FTimerHandle TimerHandle_Interact;
 	double TimeSinceLastInteraction = 0.0;
 	void DoInteractionCheck();
-	void CouldntFindInteractionComp();
-	void FoundNewInteractionComp(TObjectPtr<UInteractionComponent> InteractionCompIn);
+	void EndPlayerFocus();
+	void BeginPlayerFocus(TObjectPtr<UInteractionComponent> InteractionCompIn);
 	void BeginInteract();
 	void EndInteract();
 
@@ -304,6 +311,9 @@ private:
 
 	UFUNCTION(Server, Unreliable)
 	void Server_ClimbUp();
+
+	UFUNCTION(Server, Reliable)
+	void Server_FoundNewInteractionComp(UInteractionComponent* InteractionCompIn);
 	
 	// For on screen widgets
 	TObjectPtr<class UPlayerInGameWidget> MainWidgetRef;
