@@ -73,7 +73,7 @@ protected:
 	// Called when the game starts
 	virtual void Deactivate() override;
 
-	bool CanInteract(class ARepelTheUprisingCharacter* Character) const;
+	bool CanInteract(class ARepelTheUprisingCharacter* Character);
 
 	//On the server, this will hold all interactors. On the local player, this will just hold the local player (provided they are an interactor)
 	UPROPERTY()

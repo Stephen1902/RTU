@@ -336,6 +336,17 @@ void ARepelTheUprisingCharacter::Tick(float DeltaSeconds)
 			}
 		}
 	}
+
+	if (GetWorldTimerManager().IsTimerActive(TimerHandle_Interact))
+	{
+		const FString StringToDisplay = FString::FromInt(GetWorldTimerManager().GetTimerRemaining(TimerHandle_Interact));
+		GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Red, *StringToDisplay);
+	}
+	else
+	{
+		const FString StringToDisplay = "Timer not active";
+		GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Red, *StringToDisplay);
+	}
 }
 
 void ARepelTheUprisingCharacter::BeginPlay()
@@ -562,14 +573,15 @@ void ARepelTheUprisingCharacter::BeginInteract()
 	InteractionData.bIsInteractHeld = true;
 
 	if (UInteractionComponent* InteractionComp = GetInteractionComp())
-	{
+	{		
+		InteractionComp->BeginInteract(this);
+		
 		if (FMath::IsNearlyZero(InteractionComp->InteractionTime))
 		{
 			Interact();
 		}
 		else
 		{
-			InteractionComp->BeginInteract(this);
 			GetWorldTimerManager().SetTimer(TimerHandle_Interact, this, &ARepelTheUprisingCharacter::Interact, InteractionComp->InteractionTime, false);
 		}
 	}
@@ -586,8 +598,6 @@ void ARepelTheUprisingCharacter::EndInteract()
 		ServerEndInteract();
 	}
 	
-	InteractionData.bIsInteractHeld = false;
-
 	GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
 
 	if (UInteractionComponent* InteractionComp = GetInteractionComp())
@@ -656,7 +666,6 @@ bool ARepelTheUprisingCharacter::ServerEndInteract_Validate()
 
 void ARepelTheUprisingCharacter::Interact()
 {
-	UE_LOG(LogTemp, Warning, TEXT("%s has called interact it %s have authority."), *GetName(), HasAuthority() ? TEXT("does") : TEXT("does not"));
 	GetWorldTimerManager().ClearTimer(TimerHandle_Interact);
 
 	if (UInteractionComponent* InteractionComp = GetInteractionComp())

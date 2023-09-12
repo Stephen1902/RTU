@@ -54,7 +54,7 @@ void UInteractionComponent::Deactivate()
 	Interactors.Empty();
 }
 
-bool UInteractionComponent::CanInteract(ARepelTheUprisingCharacter* Character) const
+bool UInteractionComponent::CanInteract(ARepelTheUprisingCharacter* Character)
 {
 	const bool bPlayerAlreadyInteracting = !bAcceptMultipleUsers && Interactors.Num() >= 1;
 	return !bPlayerAlreadyInteracting && IsActive() && GetOwner() != nullptr && Character != nullptr;
@@ -134,10 +134,7 @@ void UInteractionComponent::EndInteract(ARepelTheUprisingCharacter* Character)
 
 void UInteractionComponent::Interact(ARepelTheUprisingCharacter* Character)
 {
-	if (CanInteract(Character))
-	{
-		OnInteract.Broadcast(Character);
-	}
+	OnInteract.Broadcast(Character);
 }
 
 float UInteractionComponent::GetInteractPercentage()
