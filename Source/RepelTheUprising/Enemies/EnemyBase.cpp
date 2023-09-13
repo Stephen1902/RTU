@@ -3,7 +3,6 @@
 
 #include "EnemyBase.h"
 #include "Components/CapsuleComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "RepelTheUprising/HealthComponent.h"
 
@@ -20,30 +19,19 @@ AEnemyBase::AEnemyBase()
 	SetRootComponent(RootComp);
 	RootComp->InitCapsuleSize(42.f, 96.0f);
 
-	MeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh Comp"));
-	MeshComp->SetupAttachment(RootComp);
-	MeshComp->SetRelativeLocation(FVector(0.f, 0.f, -88.f));
-	MeshComp->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
-
-	MovementComp = CreateDefaultSubobject<UCharacterMovementComponent>(TEXT("Movement Comp"));
 	HealthComp = CreateDefaultSubobject<UHealthComponent>(TEXT("Health Comp"));
 
 	EnemyStatus = EEnemyStatus::EES_Normal;
-	DefaultWalkSpeed = 300.f;
-	DefaultRunSpeed = 600.f;
+	TimeBeforeReset = 30.;
+	TimeBeforeAlertOff = 30.;
+	TimeBeforeCallOffChase = 30.;
 }
 
 // Called when the game starts or when spawned
 void AEnemyBase::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (MeshComp)
-	{
-		
-	}
 	
-	MovementComp->MaxWalkSpeed = DefaultWalkSpeed;
 }
 
 // Called every frame
@@ -52,11 +40,3 @@ void AEnemyBase::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 }
-
-void AEnemyBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AEnemyBase, CurrentMovementSpeed);
-}
-

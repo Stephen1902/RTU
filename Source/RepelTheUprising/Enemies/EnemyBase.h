@@ -32,14 +32,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Set Up")
 	TObjectPtr<class UCapsuleComponent> RootComp;
-
-	// The skeletal mesh of this enemy
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Set Up")
-	TObjectPtr<USkeletalMeshComponent> MeshComp;
-
-	UPROPERTY(VisibleAnywhere, Category = "Set Up")
-	TObjectPtr<class UCharacterMovementComponent> MovementComp;
-
+	
 	// All enemies will have health
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
 	class UHealthComponent* HealthComp;
@@ -64,21 +57,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
 	double TimeBeforeCallOffChase;
 
-	// Speed at which this enemy moves when walking / patrolling
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
-	float DefaultWalkSpeed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
-	float DefaultRunSpeed;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-private:
-	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
-	
-	UPROPERTY(Replicated)
-	float CurrentMovementSpeed;
 
 	
 };
