@@ -16,7 +16,8 @@ class REPELTHEUPRISING_API AEnemyCharBase : public AEnemyBase
 
 public:
 	AEnemyCharBase();
-	
+
+	virtual void SetNewStatus(EEnemyStatus NewStatusIn) override;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -40,6 +41,7 @@ protected:
 	
 private:
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
+	virtual void OnStatusChanged() override;
 	
 	UPROPERTY(Replicated)
 	float CurrentMovementSpeed;

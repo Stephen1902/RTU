@@ -26,6 +26,8 @@ public:
 	// Sets default values for this pawn's properties
 	AEnemyBase();
 
+	virtual void SetNewStatus(EEnemyStatus NewStatusIn);
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -37,10 +39,30 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
 	class UHealthComponent* HealthComp;
 
-	// Colour of this enemy
+	// Skin colour of this enemy
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
 	FLinearColor SkinColour;
 
+	// Colour of this enemy status light when normal
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
+	FLinearColor NormalStatusColour;
+
+	// Colour of this enemy status light when on alert
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
+	FLinearColor AlertStatusColour;
+
+	// Colour of this enemy status light when chasing
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
+	FLinearColor ChasingStatusColour;
+
+	// Colour of this enemy status light when in combat
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
+	FLinearColor CombatStatusColour;
+
+	// Colour of this enemy status light when disabled
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
+	FLinearColor DisabledStatusColour;
+	
 	// Current status of this enemy
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
 	EEnemyStatus EnemyStatus;
@@ -57,10 +79,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
 	double TimeBeforeCallOffChase;
 
+	virtual void OnStatusChanged();
+	
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 
-	
 };

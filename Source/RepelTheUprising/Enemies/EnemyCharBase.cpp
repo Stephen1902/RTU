@@ -15,10 +15,15 @@ AEnemyCharBase::AEnemyCharBase()
 	MovementComp = CreateDefaultSubobject<UCharacterMovementComponent>(TEXT("Movement Comp"));
 }
 
+void AEnemyCharBase::SetNewStatus(EEnemyStatus NewStatusIn)
+{
+	Super::SetNewStatus(NewStatusIn);
+	
+}
+
 void AEnemyCharBase::BeginPlay()
 {
 	Super::BeginPlay();
-
 	
 }
 
@@ -27,6 +32,13 @@ void AEnemyCharBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AEnemyCharBase, CurrentMovementSpeed);
+}
+
+void AEnemyCharBase::OnStatusChanged()
+{
+	Super::OnStatusChanged();
+
+	
 }
 
 

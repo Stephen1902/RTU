@@ -27,6 +27,14 @@ AEnemyBase::AEnemyBase()
 	TimeBeforeCallOffChase = 30.;
 }
 
+void AEnemyBase::SetNewStatus(const EEnemyStatus NewStatusIn)
+{
+	EnemyStatus = NewStatusIn;
+
+	UE_LOG(LogTemp, Warning, TEXT("SetNewStatus called in AEnemyBase"));
+	OnStatusChanged();
+}
+
 // Called when the game starts or when spawned
 void AEnemyBase::BeginPlay()
 {
@@ -39,4 +47,23 @@ void AEnemyBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+}
+
+void AEnemyBase::OnStatusChanged()
+{
+	switch (EnemyStatus)
+	{
+		case EEnemyStatus::EES_Normal:
+			break;
+		case EEnemyStatus::EES_Chasing:
+			break;
+		case EEnemyStatus::EES_Alert:
+			break;
+		case EEnemyStatus::EES_Combat:
+			break;
+		case EEnemyStatus::EES_Disabled:
+			break;
+	
+		default: break;
+	}
 }
