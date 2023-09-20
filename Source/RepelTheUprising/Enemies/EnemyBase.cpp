@@ -21,13 +21,13 @@ AEnemyBase::AEnemyBase()
 
 	HealthComp = CreateDefaultSubobject<UHealthComponent>(TEXT("Health Comp"));
 
-	EnemyStatus = EEnemyStatus::EES_Normal;
+	EnemyStatus = EStaticEnemyStatus::EES_Normal;
 	TimeBeforeReset = 30.;
 	TimeBeforeAlertOff = 30.;
 	TimeBeforeCallOffChase = 30.;
 }
 
-void AEnemyBase::SetNewStatus(const EEnemyStatus NewStatusIn)
+void AEnemyBase::SetNewStatus(const EStaticEnemyStatus NewStatusIn)
 {
 	EnemyStatus = NewStatusIn;
 
@@ -53,15 +53,15 @@ void AEnemyBase::OnStatusChanged()
 {
 	switch (EnemyStatus)
 	{
-		case EEnemyStatus::EES_Normal:
+		case EStaticEnemyStatus::EES_Normal:
 			break;
-		case EEnemyStatus::EES_Chasing:
+		case EStaticEnemyStatus::EES_Chasing:
 			break;
-		case EEnemyStatus::EES_Alert:
+		case EStaticEnemyStatus::EES_Alert:
 			break;
-		case EEnemyStatus::EES_Combat:
+		case EStaticEnemyStatus::EES_Combat:
 			break;
-		case EEnemyStatus::EES_Disabled:
+		case EStaticEnemyStatus::EES_Disabled:
 			break;
 	
 		default: break;

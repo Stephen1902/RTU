@@ -3,11 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Pawn.h"
-#include "EnemyBase.generated.h"
+#include "GameFramework/Character.h"
+#include "WalkingEnemyBase.generated.h"
+
 
 UENUM(BlueprintType)
-enum class EStaticEnemyStatus : uint8
+enum class EWalkingEnemyStatus : uint8
 {
 	EES_Disabled		UMETA(DisplayName="Disabled"),
 	EES_Normal			UMETA(DisplayName="Normal"),
@@ -16,25 +17,26 @@ enum class EStaticEnemyStatus : uint8
 	EES_Combat			UMETA(DisplayName="Combat")
 };
 
-/* Base class for all enemies in the game with the most common variables for them */
+
 UCLASS()
-class REPELTHEUPRISING_API AEnemyBase : public APawn
+class REPELTHEUPRISING_API AWalkingEnemyBase : public ACharacter
 {
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this pawn's properties
-	AEnemyBase();
+	// Sets default values for this character's properties
+	AWalkingEnemyBase();
 
-	virtual void SetNewStatus(EStaticEnemyStatus NewStatusIn);
+	virtual void SetNewStatus(EWalkingEnemyStatus NewStatusIn);
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Set Up")
-	TObjectPtr<class UCapsuleComponent> RootComp;
-	
+	// Current status of this enemy
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
+	EWalkingEnemyStatus EnemyStatus;
+
 	// All enemies will have health
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
 	class UHealthComponent* HealthComp;
@@ -62,28 +64,18 @@ protected:
 	// Colour of this enemy status light when disabled
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Set Up")
 	FLinearColor DisabledStatusColour;
-	
-	// Current status of this enemy
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
-	EStaticEnemyStatus EnemyStatus;
 
-	// Time in seconds before a disabled enemy will return to an active state
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
-	double TimeBeforeReset;
-
-	// Time in seconds before an alerted enemy returns to a normal state
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
-	double TimeBeforeAlertOff;
-
-	// Time in seconds before an enemy chasing will stop and return to an Alert state
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
-	double TimeBeforeCallOffChase;
-
-	virtual void OnStatusChanged();
-	
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	// Called to bind functionality to input
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+private:
+	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
+	virtual void OnStatusChanged();
+	
+	UPROPERTY(Replicated)
+	float CurrentMovementSpeed;
 };

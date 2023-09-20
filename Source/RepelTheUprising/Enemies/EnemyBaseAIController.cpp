@@ -46,7 +46,7 @@ void AEnemyBaseAIController::TargetPerceptionUpdated(AActor* FoundActor, FAIStim
 			UE_LOG(LogTemp, Warning, TEXT("I see something."));
 
 			bIsChasingTarget = true;
-			ControlledPawn->SetNewStatus(EEnemyStatus::EES_Chasing);
+			ControlledPawn->SetNewStatus(EStaticEnemyStatus::EES_Chasing);
 		}
 	}
 
@@ -58,7 +58,7 @@ void AEnemyBaseAIController::TargetPerceptionInfoUpdated(const FActorPerceptionU
 	{
 		if (UpdateInfo.Stimulus.WasSuccessfullySensed())
 		{
-			//MoveToTargetLocation(UpdateInfo.Stimulus.StimulusLocation);
+			MoveToTargetLocation(UpdateInfo.Stimulus.StimulusLocation);
 		}
 		else
 		{
