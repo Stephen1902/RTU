@@ -26,6 +26,7 @@ AWalkingEnemyBase::AWalkingEnemyBase()
 
 	// Set default variables
 	EnemyStatus = EWalkingEnemyStatus::EES_Normal;
+	CurrentPatrolPoint = 0;
 }
 
 void AWalkingEnemyBase::SetNewStatus(EWalkingEnemyStatus NewStatusIn)
@@ -54,6 +55,28 @@ void AWalkingEnemyBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+}
+
+FVector AWalkingEnemyBase::GetFirstPatrolPoint()
+{
+	if (PatrolPoints.Num() > 0)
+	{
+		return PatrolPoints[0]->GetActorLocation();
+	}
+	return FVector(0.f);
+}
+
+FVector AWalkingEnemyBase::GetNextPatrolPoint()
+{
+	if (PatrolPoints.Num() > 0)
+	{
+		const int32 TempPatrolPoint = CurrentPatrolPoint + 1;
+		CurrentPatrolPoint = TempPatrolPoint % PatrolPoints.Num();
+		UE_LOG(LogTemp, Warning, TEXT("CurrentPatrolPoint set to: %i"), CurrentPatrolPoint);
+		return PatrolPoints[CurrentPatrolPoint]->GetActorLocation();
+	
+	}
+	return FVector(0.f);
 }
 
 void AWalkingEnemyBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

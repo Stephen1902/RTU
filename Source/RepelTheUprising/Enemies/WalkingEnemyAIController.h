@@ -14,6 +14,14 @@ class REPELTHEUPRISING_API AWalkingEnemyAIController : public AAIController
 {
 	GENERATED_BODY()
 
+public:
+	// Called by the behaviour tree to start the call of the alert status
+	void BeginCallOffAlert();
+	// Called when the timer for the alert is complete or when the player is spotted again
+	void CallOffAlert();
+	// Location of the current Patrol Point
+	void GetPatrolPointLocation();
+	
 protected:
 	AWalkingEnemyAIController();
 
@@ -34,7 +42,10 @@ protected:
 	// Time in seconds before an enemy chasing will stop and return to an Alert state
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status")
 	double TimeBeforeCallOffChase;
-
+	
+	// Time to wait in between moving between patrol points
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Patrol")
+	float WaitTimeBetweenPatrolPoints;
 	
 private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Perception", meta = (AllowPrivateAccess = "true"))
@@ -60,5 +71,12 @@ private:
 
 	// Character that this controller is controlling
 	UPROPERTY()
-	TObjectPtr<AWalkingEnemyBase> ControlledCharacter;
+	TObjectPtr<class AWalkingEnemyBase> ControlledCharacter;
+
+	// Timer Handles
+	FTimerHandle CallOffAlertTimer;
+
+	// Location of the current patrol point for this enemy
+	int32 CurrentPatrolPoint;
+
 };

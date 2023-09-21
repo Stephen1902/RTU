@@ -1,13 +1,12 @@
 // Copyright 2023 DME Games
 
-
 #include "WalkingEnemyAIController.h"
-
 #include "WalkingEnemyBase.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Hearing.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "RepelTheUprising/Player/RepelTheUprisingCharacter.h"
 
 AWalkingEnemyAIController::AWalkingEnemyAIController()
@@ -38,20 +37,34 @@ AWalkingEnemyAIController::AWalkingEnemyAIController()
 	TimeBeforeReset = 30.;
 	TimeBeforeAlertOff = 30.;
 	TimeBeforeCallOffChase = 30.;
+	WaitTimeBetweenPatrolPoints = 5.f;
+	CurrentPatrolPoint = 0;
 }
 
 void AWalkingEnemyAIController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Check for a valid Behaviour Tree, run it if there is one
-	if (BehaviorTree)
-	{
-		RunBehaviorTree(BehaviorTree);
-	}
-
 	// Get the character being controlled
 	ControlledCharacter = Cast<AWalkingEnemyBase>(GetCharacter());
+
+	// Check for a valid Behaviour Tree, run it if there is one
+	if (BehaviorTree && ControlledCharacter)
+	{
+		RunBehaviorTree(BehaviorTree);
+
+		if (ControlledCharacter->GetLengthOfPPArray() > 0)
+		{
+			GetBlackboardComponent()->SetValueAsVector(TEXT("NextPatrolPointLocation"), ControlledCharacter->GetFirstPatrolPoint());
+			GetBlackboardComponent()->SetValueAsBool(TEXT("CharacterUsesPatrolPoints"), true);
+			GetBlackboardComponent()->SetValueAsFloat(TEXT("TimeBetweenPatrolPoints"), WaitTimeBetweenPatrolPoints);
+		}
+		else
+		{
+			GetBlackboardComponent()->SetValueAsBool(TEXT("CharacterUsesPatrolPoints"), false);
+		}
+	}
+
 }
 
 void AWalkingEnemyAIController::TargetPerceptionUpdated(AActor* FoundActor, FAIStimulus Stimulus)
@@ -76,8 +89,6 @@ void AWalkingEnemyAIController::TargetPerceptionUpdated(AActor* FoundActor, FAIS
 		
 				GetBlackboardComponent()->SetValueAsVector(TEXT("PlayerLocation"), RTUPlayerCharacter->GetActorLocation());
 				const FVector ValueAsSet = GetBlackboardComponent()->GetValueAsVector(TEXT("PlayerLocation"));
-				UE_LOG(LogTemp, Warning, TEXT("Value set to: %s"), *ValueAsSet.ToString());
-				UE_LOG(LogTemp, Warning, TEXT("I saw a player in location %s"), *ValueAsSet.ToString());
 			}
 	}
 
@@ -110,6 +121,35 @@ void AWalkingEnemyAIController::TargetPerceptionInfoUpdated(const FActorPercepti
 			RTUPlayerCharacter = nullptr;
 			
 			bIsChasingTarget = false;
+		}
+	}
+}
+
+void AWalkingEnemyAIController::BeginCallOffAlert()
+{
+	GetWorldTimerManager().SetTimer(CallOffAlertTimer, this, &AWalkingEnemyAIController::CallOffAlert, TimeBeforeAlertOff, false);	
+}
+
+void AWalkingEnemyAIController::CallOffAlert()
+{
+	// Check if the timer is already active
+	if (GetWorldTimerManager().IsTimerActive(CallOffAlertTimer))
+	{
+		GetBlackboardComponent()->ClearValue(TEXT("LastKnownPlayerLocation"));
+		GetWorldTimerManager().ClearTimer(CallOffAlertTimer);
+	}
+}
+
+void AWalkingEnemyAIController::GetPatrolPointLocation()
+{
+	if (ControlledCharacter)
+	{
+		// Get the next Patrol Point Location
+		const FVector NextPPLocation = ControlledCharacter->GetNextPatrolPoint();
+		// Check that the location returned isn't 
+		if (!NextPPLocation.IsNearlyZero())
+		{
+			GetBlackboardComponent()->SetValueAsVector(TEXT("NextPatrolPointLocation"), NextPPLocation);
 		}
 	}
 }
